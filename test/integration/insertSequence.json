@@ -1,0 +1,31 @@
+[ {
+  "name" : "application_user",
+  "columns" : [ {
+    "name" : "id",
+    "dataType" : "INTEGER"
+  }, {
+    "name" : "name",
+    "dataType" : "VARCHAR"
+  }, {
+    "name" : "email",
+    "dataType" : "VARCHAR"
+  }, {
+    "name" : "password",
+    "dataType" : "VARCHAR"
+  }, {
+    "name" : "enabled",
+    "dataType" : "BIT"
+  }, {
+    "name" : "failed_login_attempts",
+    "dataType" : "INTEGER"
+  } ]
+}, {
+  "name" : "application_role_membership",
+  "columns" : [ {
+    "name" : "user_id",
+    "dataType" : "INTEGER"
+  }, {
+    "name" : "role_type",
+    "dataType" : "VARCHAR"
+  } ]
+} ]

@@ -1,0 +1,68 @@
+@()<!DOCTYPE html>
+<html>
+    <head>
+        <title>MyApp</title>
+        
+        <link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/favicon.png")">
+        
+        <script data-main="@routes.Assets.versioned("javascripts/main.js")" type="text/javascript" src="@routes.Assets.versioned("lib/requirejs/require.js")"></script>
+                
+        <link rel="stylesheet" media="screen" href="//maxcdn.bootstrapcdn.com/bootswatch/3.1.1/cerulean/bootstrap.min.css">
+        <link rel="stylesheet" media="screen" href="@routes.Assets.at("stylesheets/main.css")">
+        <link rel="stylesheet" media="screen" href="@routes.Assets.at("stylesheets/angular-multi-select.css")">
+        <link rel="stylesheet" media="screen" href="@routes.Assets.at("stylesheets/angular-block-ui.css")">
+        <link rel="stylesheet" href='@routes.WebJarAssets.at(WebJarAssets.locate("font-awesome.min.css"))'>
+        <link rel="stylesheet" href='@routes.WebJarAssets.at(WebJarAssets.locate("select.min.css"))'>
+        <link rel="stylesheet" href="http://cdnjs.cloudflare.com/ajax/libs/select2/3.4.5/select2.css">       
+    </head>
+    <body>
+    @*-- Header -- *@
+    <header class="navbar navbar-inverse navbar-fixed-top basics-nav" data-ng-controller="HeaderController"
+        data-ng-cloak>
+      <div class="container menu-bar-header" data-ng-switch="!!user" data-ng-cloak>
+        <a href="#/" class="navbar-brand">MyApp</a>
+        <div data-ng-switch-when="true">
+          <ul class="nav navbar-nav">
+				<li class="dropdown">
+                   <a id="adminMenu" href="" class="dropdown-toggle" data-toggle="dropdown">
+                      Admin
+                     <b class="caret"></b>
+                  </a>
+                  <ul class="dropdown-menu">
+                     <li><a id="usersMenu" href="#/users/1">Users</a></li>
+                     <li><a id="usersMenu" href="#/userroles">User Roles</a></li>
+                  </ul>   
+                </li>
+              </ul>
+            </li>
+		  </ul>
+          <ul class="nav navbar-nav navbar-right">
+            <li class="dropdown">
+              <a id="userMenuItem" href="" class="dropdown-toggle" data-toggle="dropdown">
+                <span class="glyphicon glyphicon-user"></span> {{userName}}
+                <b class="caret"></b>
+              </a>
+              <ul class="dropdown-menu">
+                <li><a href="#/myprofile"><span class="glyphicon glyphicon-cog"></span> My Profile</a></li>
+                <li>
+                  <a href="" data-ng-click="logout()">
+                    <span class="glyphicon glyphicon-off"></span> Logout
+                  </a>
+                </li>
+              </ul>
+            </li>
+          </ul>
+        </div>
+        <div data-ng-switch-when="false">
+          <ul class="nav navbar-nav pull-right">
+            <li><a href="#/login">Login</a></li>
+          </ul>
+        </div>
+      </div>
+    </header>
+    
+    <div class="container" style="width: 100%" data-ng-cloak>
+        <div data-ng-view style="margin-left: 10px; margin-top: 45px;"></div>
+    </div>    
+    </body>
+</html>

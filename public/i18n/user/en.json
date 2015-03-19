@@ -1,0 +1,100 @@
+{
+   "role": "Role",
+   "roles": "Roles",
+   "user": "User",
+   "users": "Users",
+   "ok_button": "OK",
+   "save_button": "Save",
+   "remove_button": "Remove",
+   "cancel_button": "Cancel",
+   "add_users_button": "Add User(s)",
+   "saving_progress_message": "Saving...",
+   "admin_role_name": "Administrator",
+   "resource_manager_role_name": "Resource Manager", 
+   "add_roles_to_user_dialog": {
+       "select_role_placeholder": "Select role...",
+       "title": "Add roles to user '{{userName}}'",
+       "please_select_roles": "Please select one or more roles",
+       "error_adding_role": "Error adding role(s)",
+       "add_role_unique_constraints_violation": "Unable to add role(s) since user already is a member"
+   },
+   "add_users_to_role_dialog": {   
+       "title": "Add users to role '{{roleName}}'",
+       "please_select_user": "Please select one or more users",
+       "error_adding_users": "Error adding user(s)",
+       "add_user_unique_constraints_violation": "Unable to add user(s) to role since user(s) already are members"
+   },
+   "change_password_dialog": {
+       "title": "Change Password for user '{{userName}}'",
+       "password_label": "Password",
+       "retype_password_label": "Re-type Password",
+       "password_do_not_match": "Passwords do not match",
+       "error_changing_password": "Error updating user",
+       "invalid_password_message": "Only ASCII characters allowed",
+       "changed_password_title": "Changed password",
+       "successfully_changed_password": "Successfully changed password for {{userName}}" 
+   },
+   "edit_user": {
+      "details": "Details",
+      "name": "Name",
+      "email": "Email",
+      "password": "@:change_password_dialog.password_label",
+      "retype_password_label": "@:change_password_dialog.retype_password_label",
+      "password_dont_match_message": "Passwords do not match",
+      "enabled": "Enabled",
+      "user_roles": "User Roles",
+      "description": "Description",
+      "add_roles_button": "Add Role(s)",
+      "new_user_title": "New User",
+      "messages": {
+         "successful_update": "Successfully updated user",
+         "error_loading": "Error obtaining user",
+         "error_updating": "Error updating user",
+         "unique_email": "Email address must be unique",
+         "invalid_password": "Invalid password",
+         "deleting_role": "Error deleting role membership"
+      }
+   },
+   "user_roles": {
+      "user_roles": "@:edit_user.user_roles",
+      "name": "@:edit_user.name",
+      "description": "@:edit_user.description",
+      "admin_role_description": "Manage users and roles",
+      "resource_manager_role_description": "Resource Manager role",
+      "messages": {
+         "error_loading_roles": "Error obtaining role members",
+         "error_loading_users": "Error obtaining users",
+         "deleting_role": "Error deleting role member"
+      }
+   },
+   "manage_users": {
+       "new_user_button": "New User",
+       "title": "Manage Users",
+       "name": "@:edit_user.name",
+       "email": "@:edit_user.email",
+       "enabled": "@:edit_user.enabled",
+       "account_locked": "Account Locked",
+       "action_button": "Action",
+       "unlock_button": "Unlock",
+       "disable_button": "Disable",
+       "enable_button": "Enable",
+       "delete_button": "Delete",
+       "change_password_button": "Change Password",
+       "delete_user_title": "Delete user",
+       "delete_user_confirmation_message": "Do you wish to delete user {{userName}}?",
+       "error_messages": {
+           "loading": "Error loading users",
+           "deleting": "Error deleting user",
+           "disabling": "Error disabling user",
+           "enabling": "Error enabling user",
+           "unlocking": "Error unlocking user",
+           "foreign_key_violation": "User cannot be deleted because it is being used. Disable instead."
+       }
+   },
+   "change_own_password_dialog": {
+      "change_your_password": "Change your password",
+      "current_password": "Current password",
+      "incorrect_current_password" :"Incorrect current password",
+      "successfully_changed_password": "Successfully changed password"
+   }
+}

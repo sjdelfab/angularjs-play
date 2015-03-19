@@ -1,0 +1,50 @@
+<div class="container user-search-container">
+       <button id="newUser" type="button" class="btn btn-sm btn-primary new-user-button" data-ng-click="createNewUser()">{{'manage_users.new_user_button' | translate}}</button>
+       <h3>{{'manage_users.title' | translate}}</h3>
+       <div > 
+            <div class="alert alert-danger" role="alert" data-ng-show="error.displayErrorMessage">{{error.message}}</div>       
+       </div>       
+       <div>
+           <!-- table-bordered -->
+            <table class="table table-striped table-condensed">
+                <thead>
+                    <tr>
+                        <th>{{'manage_users.name' | translate}}</th>
+                        <th>{{'manage_users.email' | translate}}</th>
+                        <th class="user-status">{{'manage_users.enabled' | translate}}</th>
+                        <th class="user-status">{{'manage_users.account_locked' | translate}}</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr data-ng-repeat="user in users">
+                        <td class="user-text"><a href="#/edituser/{{page}}/{{user.id}}">{{user.name}}</a></td>
+                        <td class="user-text">{{user.email}}</td>
+                        <td class="user-status"><span data-ng-class="{{user.enabled ? 'enabledClass' : 'disabledClass'}}"></span></td>
+                        <td class="user-status"><span data-ng-class="{{user.accountLocked ? 'accountLockedClass' : ''}}"></span></td>
+                        <td class="align-right">
+                            <div class="btn-group">
+	                            <button type="button" class="btn btn-sm btn-primary">{{'manage_users.action_button' | translate}}</button>
+                                <button id="action_{{$index + 1}}" type="button" class="btn btn-sm btn-primary dropdown-toggle" data-toggle="dropdown" aria-expanded="false">
+	                                 <span class="caret"></span>
+	                            </button>
+	                            <ul class="dropdown-menu" role="menu">
+	                                 <li class="align-left" data-ng-show="user.accountLocked"><a href="" data-ng-click="unlockUser(user)">{{'manage_users.unlock_button' | translate}}</a></li>
+	                                 <li class="align-left" data-ng-show="user.enabled"><a href="" data-ng-click="disableUser(user)">{{'manage_users.disable_button' | translate}}</a></li>
+	                                 <li class="align-left" data-ng-show="!user.enabled"><a href="" data-ng-click="enableUser(user)">{{'manage_users.enable_button' | translate}}</a></li>
+	                                 <li class="align-left"><a href="" data-ng-click="deleteUser(user)">{{'manage_users.delete_button' | translate}}</a></li>
+	                                 <li class="align-left"><a id="chgpwd_{{$index + 1}}" href="" data-ng-click="changePassword(user)">{{'manage_users.change_password_button' | translate}}</a></li>
+	                            </ul>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="float-right" style="height: 60px" data-ng-show="numberOfPages > 1">
+		        <pagination total-items="totalItems" class="pagination-sm" 
+		                    max-size="maxSize" items-per-page="pageSize" ng-model="currentPage"
+		                    boundary-links="true" rotate="false" num-pages="numberOfPages"
+		                    style="margin-top: 5px" on-select-page="refreshPage(page)"></pagination>
+		    </div>            
+        </div>
+</div>

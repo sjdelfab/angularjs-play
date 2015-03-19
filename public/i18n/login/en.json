@@ -1,0 +1,10 @@
+{
+   "login_title": "Please sign in",
+   "email_placeholder": "E-mail",
+   "password_placeholder": "Password",
+   "login_button": "Login",
+   "invalid_username_or_password_message": "Invalid username or password",
+   "account_locked_message": "Invalid username or password",
+   "unable_to_login_message": "Unable to login",
+   "provide_email_or_password_message": "Please provide an email and password"
+}

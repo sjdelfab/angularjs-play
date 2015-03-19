@@ -1,0 +1,26 @@
+<div class="row" style="margin-top: 85px;">
+	<div class="col-md-4 col-md-offset-4">
+		<div class="panel panel-default">
+			<div class="panel-heading">
+				<h3 class="panel-title" translate="login_title"></h3>
+			</div>
+			<div class="panel-body">
+				<form accept-charset="UTF-8" role="form" name="loginForm" data-ng-submit="login(credentials)">
+					<fieldset>
+						<div class="form-group">
+							<input autocomplete="off" class="form-control" placeholder="{{'email_placeholder' | translate}}" name="email" type="text" data-ng-model="credentials.email" required />
+						</div>
+						<div class="form-group">
+							<input autocomplete="off" class="form-control" placeholder="{{'password_placeholder' | translate}}" name="password" type="password" value="" data-ng-model="credentials.password" required />
+						</div>
+						<input type="submit" class="btn btn-lg btn-primary btn-block" data-ng-disabled="loginForm.$invalid" data-ng-click="login(credentials)" value="{{'login_button' | translate}}">
+						<div class="login-progress" ng-show="loginInProgress"><i class="fa fa-cog fa-spin fa-2x"></i></div>
+					</fieldset>
+				</form>
+			</div>
+			<div class="login-error"> 
+               <div id="loginError" class="alert alert-danger" role="alert" data-ng-show="error.displayErrorMessage">{{error.loginErrorMessage}}</div>       
+            </div>
+		</div>
+	</div>
+</div>

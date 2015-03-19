@@ -1,0 +1,41 @@
+# Routes
+# This file defines all application routes (Higher priority routes first)
+# ~~~~
+
+# Home page
+GET     /                       	@controllers.Application.index
+
+# JavaScript routes object
+GET     /jsroutes.js            	@controllers.Application.jsRoutes()
+
+# Routes used by Angular
+# ~~~~
+
+# Authentication
+POST    /login                  	@controllers.Application.login()
+POST    /logout                 	@controllers.Application.logout()
+
+# Users
+POST    /users                  	@controllers.Users.createUser()
+DELETE  /users/:externalisedUserId  @controllers.Users.deleteUser(externalisedUserId: String)
+GET     /currentUser            	@controllers.Users.currentLoggedInUser()
+GET     /searchUser					@controllers.Users.searchUser(searchString: String)
+GET     /getUsers					@controllers.Users.getUsers(page: Int)
+GET     /getUser					@controllers.Users.getUser(externalisedUserId: String)
+POST    /updateUser					@controllers.Users.updateUser()
+POST    /enableUser					@controllers.Users.enableUser(externalisedUserId: String, status: Boolean)
+POST    /unlockUser					@controllers.Users.unlockUser(externalisedUserId: String)
+POST    /changeUserPassword     	@controllers.Users.changeUserPassword(externalisedUserId: String, newPassword: String)
+GET		/roleMembers                @controllers.Users.getRoleMembers(roleType: String)
+GET		/roleNonMembers             @controllers.Users.getRoleNonMembers(roleType: String)
+DELETE  /deleteRoleMember           @controllers.Users.deleteRoleMember(externalisedUserId: String, roleType: String)
+POST    /addNewRoleMembers			@controllers.Users.addUsersToRole()
+GET     /getMyProfile			    @controllers.Users.getMyProfile()
+POST    /updateMyProfile			@controllers.Users.updateMyProfile()
+POST    /changeMyPassword     	    @controllers.Users.changeMyPassword(currentPassword: String, newPassword: String)
+
+# Map static resources from the /public folder to the /assets URL path
+GET     /assets/*file               controllers.Assets.at(path="/public", file)
+GET     /webjars/*file              controllers.WebJarAssets.at(file)
+GET     /*file                      controllers.Assets.versioned(path="/public", file: Asset)
+

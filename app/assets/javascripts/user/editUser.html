@@ -1,0 +1,83 @@
+<div class="container" id="containerElement">
+    <ol class="breadcrumb setup-screen-breadcrumb">
+      <li><a href="#/users/{{page}}">{{'users' | translate}}</a></li>
+      <li class="active">{{editUserTitle}}</li>
+    </ol>
+	<div class="setup-screen-alert-div"> 
+         <div id="userErrorMessage" class="alert alert-danger" role="alert" data-ng-show="error.displayErrorMessage">{{error.message}}</div>       
+    </div>
+     <div class="setup-screen-alert-div"> 
+         <div class="alert alert-success" role="alert" data-ng-show="status.displayMessage">{{status.message}}</div>       
+    </div>
+    <h3>{{'edit_user.details' | translate}}</h3>
+	<form class="form-horizontal" name="userForm" data-form-validation>
+		<div class="form-group">
+			<label for="userName" class="col-sm-2 control-label"><span class="required">&#42;</span>&nbsp;{{'edit_user.name' | translate}}</label>
+			<div class="col-sm-7">
+				<input type="text" class="form-control" name="userName" data-ng-model="user.name" placeholder="{{'edit_user.name' | translate}}" 
+					   data-ng-maxlength="254" data-ng-minlength="2" data-validate-popups required />
+			</div>
+		</div>
+		<div class="form-group">
+			<label for="userEmail" class="col-sm-2 control-label"><span class="required">&#42;</span>&nbsp;{{'edit_user.email' | translate}}</label>
+			<div class="col-sm-7">
+				<input type="email" class="form-control" name="userEmail" data-ng-model="user.email" placeholder="{{'edit_user.email' | translate}}" 
+					   data-validate-popups required />
+			</div>
+		</div>
+		<div class="form-group">
+			<label for="userEnabled" class="col-sm-2 control-label checkbox-form-label">{{'edit_user.enabled' | translate}}</label>
+			<div class="col-sm-7">
+				<input type="checkbox" class="form-control autosize" name="userEnabled" data-ng-model="user.enabled"/>
+			</div>
+		</div>
+		<div class="form-group" data-ng-show="status.isNewUser">
+			<label class="control-label col-sm-2" for="password">{{'edit_user.password' | translate}}:</label>
+			<div class="controls col-sm-7">
+				<input class="form-control" type="password" name="password" placeholder="*******" data-ng-model="passwords.password" 
+				       ui-validate="{ passwordsDontMatch : '$value === passwords.retypePassword' }" ui-validate-watch="'passwords.retypePassword'" 
+				       data-ng-required="status.isNewUser" ui-validate-passwords-dont-match="{{'edit_user.password_dont_match_message' | translate}}" data-validate-popups/>
+			</div>
+		</div>
+		<div class="form-group" data-ng-show="status.isNewUser">
+			<label class="control-label col-sm-2" for="retypePassword">{{'edit_user.retype_password_label' | translate}}:</label>
+			<div class="controls col-sm-7">
+				<input class="form-control" type="password" name="retypePassword" placeholder="*******" data-ng-model="passwords.retypePassword" 
+				       data-ng-required="status.isNewUser"/>
+			</div>
+		</div>
+	</form>	
+</div>
+<div class="container">
+	<div class="col-md-2"></div>
+	<div class="col-md-7">
+		<div class="btn-group float-right">
+			<a id="saveUserButton" class="btn btn-sm btn-primary navigating-buttons next-button" role="button" ng-click="save()">{{'save_button' | translate}}</a>
+		</div>
+	</div>
+	<div class="col-md-2"></div>
+</div>
+<div class="container" data-ng-show="!status.isNewUser">
+   <h3>{{'edit_user.user_roles' | translate}}</h3>
+	<div class="col-md-9">
+		<!-- table-bordered -->
+		<table class="table table-striped table-condensed">
+			<thead>
+				<tr>
+					<th>{{'role' | translate}}</th>
+					<th>{{'edit_user.description' | translate}}</th>
+					<th class="align-right"><button id="addUserToRole"	type="button" class="btn btn-sm btn-primary" data-ng-click="addRoles()">{{'edit_user.add_roles_button' | translate}}</button></th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr data-ng-repeat="role in roles">
+					<td class="user-text"><a href="#/edituserrole/{{role.roleType}}">{{role.name}}</a></td>
+					<td class="user-text">{{role.description}}</td>
+					<td class="align-right">
+						<button type="button" class="btn btn-sm btn-primary" data-ng-click="removeFromRole(role)">{{'remove_button' | translate}}</button>
+					</td>
+				</tr>
+			</tbody>
+		</table>
+	</div>
+</div>

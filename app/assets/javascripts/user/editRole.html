@@ -1,0 +1,28 @@
+<div class="container user-search-container">
+       <ol class="breadcrumb setup-screen-breadcrumb">
+          <li><a href="#/userroles">{{'roles' | translate}}</a></li>
+          <li class="active">{{roleName}}</li>
+       </ol>
+       <div > 
+            <div class="alert alert-danger" role="alert" data-ng-show="error.displayErrorMessage">{{error.message}}</div>       
+       </div>       
+       <div>
+           <!-- table-bordered -->
+            <table class="table table-striped table-condensed">
+                <thead>
+                    <tr>
+                        <th>{{'user' | translate}}</th>
+                        <th class="align-right"><button id="addUserToRole" type="button" class="btn btn-sm btn-primary" data-ng-click="addUsers()">{{'add_users_button' | translate}}</button></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr data-ng-repeat="user in users">
+                        <td class="user-text"><a href="#/edituser/1/{{user.userId}}">{{user.name}}</a></td>
+                        <td class="align-right">
+                            <button type="button" class="btn btn-sm btn-primary" data-ng-click="deleteUser(user)">{{'remove_button' | translate}}</button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+</div>
