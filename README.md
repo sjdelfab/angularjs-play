@@ -141,5 +141,7 @@ how to use the directive.
 
 ## References
 [1] http://typesafe.com/activator/template/play-angular-require-seed
+
 [2] https://github.com/juanignaciosl/wedding-tables-planner-web
+
 [3] http://danhaywood.com/2011/12/20/db-unit-testing-with-dbunit-json-hsqldb-and-junit-rules/
