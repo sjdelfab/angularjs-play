@@ -32,10 +32,12 @@ Currently using AngularJS 1.2. Will move to 1.3 once angular-ui-bootstrap suppor
 #### Database
 Need to create 2 databases - 1 for the application and other for integration tests. Typically, you would run the following:
 
+```
 create user myapp with password 'myapp';
 create tablespace myapptb owner myapp location '/<some path>/postgres/myapp';
 create database myapp owner=myapp tablespace=myapptb;
 create database myapp_test owner=myapp tablespace=myapptb;
+```
 
 Or use pgAdmin to create user and databases.
 
@@ -47,8 +49,10 @@ Note these need to be run as myapp user.
 #### Play
 Edit the activator start script and include
 
+```
 set SBT_OPTS="-Dsbt.jse.engineType=Node" (Windows)
 SBT_OPTS="-Dsbt.jse.engineType=Node" (Linux/Mac)  
+```
 
 At the play prompt, type:
 
