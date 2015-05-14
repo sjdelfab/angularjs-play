@@ -17,8 +17,6 @@ However, I wanted to create a project which solved/implemented all the things wh
 * Localization
 * Demonstration of common ui components such as dialogs, table paging, filtering, etc
 
-Currently using AngularJS 1.2. Will move to 1.3 once angular-ui-bootstrap supports it.
-
 ## Installation and Setup
 
 ### Installation
