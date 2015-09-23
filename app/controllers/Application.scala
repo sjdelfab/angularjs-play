@@ -36,12 +36,13 @@ class Application @Inject() (userSession: UserSession, userService: UserService)
    * http://stackoverflow.com/questions/12012703/less-verbose-way-of-generating-play-2s-javascript-router
    * TODO If you have controllers in multiple packages, you need to add each package here.
    */
+
   val routeCache = {
     val jsRoutesClass = classOf[routes.javascript]
     val controllers = jsRoutesClass.getFields.map(_.get(null))
     controllers.flatMap { controller =>
-      controller.getClass.getDeclaredMethods.map { action =>
-        action.invoke(controller).asInstanceOf[play.core.Router.JavascriptReverseRoute]
+      controller.getClass.getDeclaredMethods.filter(_.invoke(controller).isInstanceOf[play.api.routing.JavaScriptReverseRoute]).map { action =>
+           action.invoke(controller).asInstanceOf[play.api.routing.JavaScriptReverseRoute]
       }
     }
   }
@@ -53,7 +54,7 @@ class Application @Inject() (userSession: UserSession, userService: UserService)
    */
   def jsRoutes(varName: String = "jsRoutes") = Cached(_ => "jsRoutes", duration = 86400) {
     Action { implicit request =>
-      Ok(Routes.javascriptRouter(varName)(routeCache: _*)).as(JAVASCRIPT)
+      Ok(play.api.routing.JavaScriptReverseRouter(varName)(routeCache: _*)).as(JAVASCRIPT)
     }
   }
 

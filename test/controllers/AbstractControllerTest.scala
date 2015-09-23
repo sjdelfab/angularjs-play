@@ -15,10 +15,12 @@ import security.InternalUser
 import models.ApplicationRoleMembership
 
 trait AbstractControllerTest extends SecurityCookieTokens with Mockito { self: Specification =>
-
+  
+  
   def createJsonRequest(jsonRequest: JsValue) = {
     val token = UUID.randomUUID.toString
-    val encryptedToken = Crypto.encryptAES(token)
+    val crypto = play.Play.application.injector().instanceOf(classOf[Crypto])
+    val encryptedToken = crypto.encryptAES(token)
     val request = FakeRequest().withBody(jsonRequest).
                          withCookies(Cookie(AUTH_TOKEN_COOKIE_KEY, encryptedToken, None, httpOnly = false)).
                          withHeaders((AUTH_TOKEN_HEADER,encryptedToken))
@@ -27,7 +29,8 @@ trait AbstractControllerTest extends SecurityCookieTokens with Mockito { self: S
   
   def createNoBodyRequest() = {
     val token = UUID.randomUUID.toString
-    val encryptedToken = Crypto.encryptAES(token)
+    val crypto = play.Play.application.injector().instanceOf(classOf[Crypto])
+    val encryptedToken = crypto.encryptAES(token)
     val request = FakeRequest().withBody((): Unit).withCookies(Cookie(AUTH_TOKEN_COOKIE_KEY, encryptedToken, None, httpOnly = false)).
                          withHeaders((AUTH_TOKEN_HEADER,encryptedToken))
     (token,request)                     

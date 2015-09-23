@@ -1,12 +1,14 @@
 import WebKeys._
 
+import play.sbt.PlayImport._
+
 name := """angularjs-play"""
 
 version := "1.0-SNAPSHOT"
 
 lazy val root = (project in file(".")).enablePlugins(PlayScala,SbtWeb)
 
-scalaVersion := "2.11.1"
+scalaVersion := "2.11.6"
 
 libraryDependencies ++= Seq(
   filters,
@@ -15,15 +17,14 @@ libraryDependencies ++= Seq(
   "org.webjars" % "jquery" % "1.11.1",
   "org.webjars" % "bootstrap" % "3.1.1-2" exclude("org.webjars", "jquery"),
   "org.webjars" % "angularjs" % "1.3.15" exclude("org.webjars", "jquery"),
-  "org.webjars" % "webjars-play_2.11" % "2.3.0",
+  "org.webjars" % "webjars-play_2.11" % "2.4.0",
   "org.webjars" % "angular-ui-bootstrap" % "0.13.0" exclude("org.webjars", "angularjs"),
   "org.webjars" % "momentjs" % "2.8.1-1",
   "org.webjars" % "font-awesome" % "4.2.0",
   "org.webjars" % "angular-ui-select" % "0.11.2",
-  "com.google.inject" % "guice" % "3.0",
   "javax.inject" % "javax.inject" % "1",
-  "com.typesafe.slick" %% "slick" % "2.1.0",
-  "com.typesafe.play" %% "play-slick" % "0.8.0",
+  "com.typesafe.slick" %% "slick" % "3.0.3",
+  "com.typesafe.play" %% "play-slick" % "1.0.1",
   "org.postgresql" % "postgresql" % "9.3-1102-jdbc4",
   "edu.vt.middleware" % "vt-password" % "3.1.2",
   "org.webjars" % "angular-translate" % "2.6.0",
@@ -31,13 +32,16 @@ libraryDependencies ++= Seq(
   "org.webjars" % "angular-translate-loader-partial" % "2.6.0",
   "org.webjars" % "angular-translate-loader-url" % "0.1.2-1",
   "org.mockito" % "mockito-core" % "1.9.5" % "test",
-  "org.scalatest" % "scalatest_2.11" % "2.2.1" % "test",
-  "org.scalatestplus" %% "play" % "1.2.0" % "test",
-  "org.dbunit" % "dbunit" % "2.5.0"
+  "org.scalatest" % "scalatest_2.11" % "2.2.5" % "test",
+  "org.scalatestplus" %% "play" % "1.4.0-M4" % "test",
+  "org.dbunit" % "dbunit" % "2.5.0",
+  "org.specs2" % "specs2_2.11" % "3.3.1" % "test",
+  "org.specs2" % "specs2-mock_2.11" % "3.3.1" % "test",
+  "org.specs2" % "specs2-junit_2.11" % "3.3.1" % "test"
 )
 
 scalacOptions in ThisBuild ++= Seq(
-  "-target:jvm-1.7",
+  "-target:jvm-1.8",
   "-encoding", "UTF-8",
   "-deprecation", // warning and location for usages of deprecated APIs
   "-feature", // warning and location for usages of features that should be imported explicitly
@@ -66,3 +70,11 @@ JshintKeys.config := Some(file("angularjs-play.jshintrc"))
 unmanagedResourceDirectories in Test <+= baseDirectory ( _ /"target/web/public/test" )
 
 resolvers += Resolver.sonatypeRepo("snapshots") 
+
+resolvers += "scalaz-bintray" at "http://dl.bintray.com/scalaz/releases"
+
+// Play provides two styles of routers, one expects its actions to be injected, the
+// other, legacy style, accesses its actions statically.
+routesGenerator := InjectedRoutesGenerator
+
+fork := true

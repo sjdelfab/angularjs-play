@@ -1,40 +1,38 @@
 package e2e
 
 import scala.collection.mutable.ArraySeq
+import org.mockito.Matchers.anyString
 import org.mockito.Mockito.when
-import org.scalatest._
+import org.scalatest.mock.MockitoSugar
 import org.scalatest.tags.ChromeBrowser
-import org.scalatestplus.play._
-import org.specs2.mock.Mockito
-import com.google.inject.AbstractModule
-import com.google.inject.Guice
-import com.google.inject.Injector
+import org.scalatestplus.play.ChromeFactory
+import org.scalatestplus.play.OneBrowserPerSuite
+import org.scalatestplus.play.OneServerPerSuite
+import org.scalatestplus.play.PlaySpec
 import controllers.SecurityCookieTokens
+import models.ApplicationRoleMembership
 import models.User
-import play.api.Application
 import play.api.GlobalSettings
-import play.api.test._
-import services.DevelopmentUserSession
-import services.PlayCacheUserSession
+import play.api.test.FakeApplication
+import scalaext.OptionExt.extendOption
+import security.InternalUser
+import services.InvalidLoginAttempt
 import services.SuccessfulLogin
 import services.UserService
-import services.UserServiceDatabase
 import services.UserSession
-import scalaext.OptionExt._
 import utils.PasswordCrypt
-import services.InvalidLoginAttempt
-import security.InternalUser
-import models.ApplicationRoleMembership
+import org.scalatest.BeforeAndAfterAll
+import scala.concurrent.duration.Duration
+import scala.concurrent.Await
 
 @ChromeBrowser
-class UsersManagementSpec extends PlaySpec with OneServerPerSuite with OneBrowserPerSuite with ChromeFactory with Mockito with SecurityCookieTokens {
-
+class UsersManagementSpec extends PlaySpec with OneServerPerSuite with OneBrowserPerSuite with ChromeFactory  with SecurityCookieTokens with MockitoSugar with BeforeAndAfterAll {
+  
   // Override app if you need a FakeApplication with other than non-default parameters.
   implicit override lazy val app: FakeApplication =
     FakeApplication(
       additionalConfiguration = Map("dbplugin" -> "disabled", controllers.PASSWORD_POLICY_MESSAGE -> "Password not strong enough"),
       withGlobal = Some(new GlobalSettings() {
-        var injector: Injector = null
         val userService = mock[UserService]
         val user = User(Some(1),"simon@email.com",Some("password"),"Simon",0,true)
         val users = (ArraySeq(user),1)
@@ -48,27 +46,19 @@ class UsersManagementSpec extends PlaySpec with OneServerPerSuite with OneBrowse
         when(userService.authenticate("wrong@email.com",encryptedPassword)).thenReturn(InvalidLoginAttempt())
         
         val userSession = createAdminUserSession();
-        
-        override def onStart(app: Application) {
-          super.onStart(app)
-          injector = Guice.createInjector(new AbstractModule {
-            protected def configure() {
-              import play.api.Play
-              bind(classOf[UserSession]).toInstance(userSession)
-              bind(classOf[UserService]).toInstance(userService)
-            }
-          })
-        }
-        
-        override def getControllerInstance[A](controllerClass: Class[A]): A = injector.getInstance(controllerClass)
+              
       })
     )
   
+  override def afterAll() {
+    Await.result(app.stop(),Duration.Inf)
+  }  
+    
   def createAdminUserSession() = {
     val userSession = mock[UserSession]
     val allRoles: Seq[ApplicationRoleMembership] = List(ApplicationRoleMembership(1l,"admin"),ApplicationRoleMembership(1l,"resource_manager"))
     val user = new InternalUser("person@email.com",1l,Some(allRoles))
-    when(userSession.lookup(any[String])).thenReturn(Some(user))
+    when(userSession.lookup(anyString())).thenReturn(Some(user))
     userSession
   }  
     

@@ -75,7 +75,7 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
   def createUser() = Restrict(parse.json)(Array("admin")) { token => sessionUser => implicit request =>
     request.body.validate[User].fold(
         errors => {
-          Logger.info("User: " + sessionUser.userEmail + ". Creating User: Invalid JSON request: " + JsError.toFlatJson(errors))
+          Logger.info("User: " + sessionUser.userEmail + ". Creating User: Invalid JSON request: " + JsError.toJson(errors))
           BadRequest("Invalid request")
         },
         user => {
@@ -134,7 +134,7 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
   def updateUser() = Restrict(parse.json)(Array("admin")) { token => sessionUser => implicit request =>
       request.body.validate[User].fold(
         errors => {
-          Logger.info("User: " + sessionUser.userEmail + ". Update User: Invalid JSON request: " + JsError.toFlatJson(errors))
+          Logger.info("User: " + sessionUser.userEmail + ". Update User: Invalid JSON request: " + JsError.toJson(errors))
           BadRequest("Invalid request")
         },
         user => {
@@ -265,7 +265,7 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
   def updateMyProfile() = ValidUserAction(parse.json) { token => sessionUser => implicit request =>
       request.body.validate[User].fold(
         errors => {
-          Logger.info("User: " + sessionUser.userEmail + ". Update User: Invalid JSON request: " + JsError.toFlatJson(errors))
+          Logger.info("User: " + sessionUser.userEmail + ". Update User: Invalid JSON request: " + JsError.toJson(errors))
           BadRequest("Invalid request")
         },
         user => {
@@ -348,7 +348,7 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
   def addUsersToRole = Restrict(parse.json)(Array("admin")) { token => sessionUser => implicit request =>
       request.body.validate[Seq[UserRoleMember]].fold(
         errors => {
-          Logger.info("User: " + sessionUser.userEmail + ". Add Users To Role: Invalid JSON request: " + JsError.toFlatJson(errors))
+          Logger.info("User: " + sessionUser.userEmail + ". Add Users To Role: Invalid JSON request: " + JsError.toJson(errors))
           BadRequest("Invalid request")
         },
         newRoleMembers => {

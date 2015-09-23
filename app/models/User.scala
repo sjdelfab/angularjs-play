@@ -2,8 +2,8 @@ package models
 
 import java.util.Date
 import scala.util.Try
-import scala.slick.driver.PostgresDriver.simple._
-import scala.slick.lifted.ExtensionMethods
+import slick.driver.PostgresDriver.simple._
+import slick.lifted.ExtensionMethods
 import play.api.Play.current
 import play.api.Play
 

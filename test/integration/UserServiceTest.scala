@@ -1,24 +1,30 @@
 package integration
 
-import integration.dbunit.AbstractIntegrationTest
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
+
 import org.scalatest.BeforeAndAfter
-import play.api.test.FakeApplication
-import org.scalatestplus.play.PlaySpec
-import services.UserServiceDatabase
+import org.scalatest.BeforeAndAfterAll
 import org.scalatestplus.play.OneAppPerSuite
-import services.SuccessfulLogin
+import org.scalatestplus.play.PlaySpec
+
+import integration.dbunit.AbstractIntegrationTest
+import javax.inject.Singleton
+import models.User
+import models.UserRoleMember
+import play.api.test.FakeApplication
 import services.AccountLocked
 import services.InvalidLoginAttempt
-import models.User
+import services.SuccessfulLogin
 import services.UniqueConstraintViolation
-import models.ApplicationRoleMembership
-import models.UserRoleMember
+import services.UserServiceDatabase
 
-class UserServiceTest extends PlaySpec with AbstractIntegrationTest with BeforeAndAfter with OneAppPerSuite {
+
+class UserServiceTest extends PlaySpec with AbstractIntegrationTest with BeforeAndAfter with OneAppPerSuite with BeforeAndAfterAll {
 
   implicit override lazy val app: FakeApplication =
     FakeApplication(
-      additionalConfiguration = Map("db.default.url" -> "jdbc:postgresql://localhost:5432/myapp_test?stringtype=unspecified",
+      additionalConfiguration = Map("slick.dbs.default.db.url" -> "jdbc:postgresql://localhost:5432/myapp_test?stringtype=unspecified",
                                     controllers.MAX_FAILED_LOGIN_ATTEMPTS -> 3)
     )
   
@@ -29,6 +35,10 @@ class UserServiceTest extends PlaySpec with AbstractIntegrationTest with BeforeA
        setUpBeforeClass("test/integration/usersDataset.json")
        hasInitialisedDatabase = true
      }
+  }
+  
+  override def afterAll() {
+    Await.result(app.stop(),Duration.Inf)
   }
   
   val userService = new UserServiceDatabase()
@@ -95,8 +105,8 @@ class UserServiceTest extends PlaySpec with AbstractIntegrationTest with BeforeA
        }
     }
   }
- 
-  "Role members management" should {
+
+ "Role members management" should {
       "Have a user" in {         
          val members = userService.getRoleMembers("admin")
          members.size mustBe 1

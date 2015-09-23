@@ -4,43 +4,44 @@ import scala.collection.mutable.ArraySeq
 import scala.concurrent.Await
 import scala.concurrent.Future
 import scala.concurrent.duration.DurationLong
+
 import org.junit.runner.RunWith
-import org.specs2.runner.JUnitRunner
 import org.mockito.Mockito.when
 import org.specs2.mutable.Specification
+import org.specs2.runner.JUnitRunner
+
 import javax.inject.Inject
 import javax.inject.Singleton
+import models.ApplicationRoleMembership
 import models.User
+import models.UserRoleMember
 import play.api.libs.json.JsValue
 import play.api.libs.json.Json
 import play.api.libs.json.Json.toJsFieldJsValueWrapper
 import play.api.mvc.Result
 import play.api.test.FakeApplication
+import play.api.test.FakeRequest
 import play.api.test.Helpers.contentAsString
 import play.api.test.Helpers.defaultAwaitTimeout
 import play.api.test.Helpers.running
+import services.AccountLocked
 import services.ForeignKeyConstraintViolation
+import services.InvalidLoginAttempt
 import services.SuccessInsert
 import services.SuccessUpdate
+import services.SuccessfulLogin
 import services.UniqueConstraintViolation
 import services.UserService
-import models.UserRoleMember
-import play.api.test.FakeRequest
-import models.ApplicationRoleMembership
-import services.SuccessUpdate
 import utils.PasswordCrypt
-import services.SuccessfulLogin
-import services.InvalidLoginAttempt
-import services.AccountLocked
 
 @RunWith(classOf[JUnitRunner])
-class UsersTest extends Specification with AbstractControllerTest {
+class UsersTest extends Specification with AbstractControllerTest  {
   
   "Create User Test" should {
     
       "Bad JSON. Return BadRequest" in {
          running(FakeApplication(
-             additionalConfiguration = Map("dbplugin" -> "disabled"))
+             additionalConfiguration = Map("dbplugin" -> "disabled"))             
          ) {
            val jsonRequest: JsValue = Json.obj("id" -> "new","name" -> "foobar", "email" -> "foo@email.com", "enabled_rubbish" -> true)
            
@@ -119,7 +120,7 @@ class UsersTest extends Specification with AbstractControllerTest {
              usersController.createUser.apply(request)
            }
            Await.result(result, DurationLong(5l) seconds)
-           val expectedResult = Json.obj("id" -> IndirectReferenceMapper.convertInternalIdToExternalised(1l)).toString
+           val expectedResult = Json.obj("id" -> IndirectReferenceMapper.convertInternalIdToExternalised(1L)).toString
            contentAsString(result) must equalTo(expectedResult)
          }
       }
@@ -131,7 +132,7 @@ class UsersTest extends Specification with AbstractControllerTest {
          running(FakeApplication(
              additionalConfiguration = Map("dbplugin" -> "disabled"))
          ) {
-           val externalisedUserId = IndirectReferenceMapper.convertInternalIdToExternalised(1)
+           val externalisedUserId = IndirectReferenceMapper.convertInternalIdToExternalised(1L)
            val jsonRequest: JsValue = Json.obj("id" -> externalisedUserId, "name" -> "foobar", "email" -> "foo@email.com", "enabled_rubbish" -> true)
            val result: Future[Result] = executeAdminUserJsonOperation(jsonRequest) { usersController => request =>
              usersController.updateUser.apply(request)

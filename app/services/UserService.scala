@@ -65,7 +65,7 @@ class UserServiceDatabase extends UserService with AbstractService {
       }
     } otherwise {
       InvalidLoginAttempt()
-    }
+    }    
   }
   
   override def unlockUser(userId: Long): Int = {
@@ -110,7 +110,7 @@ class UserServiceDatabase extends UserService with AbstractService {
   }
   
   override def deleteRoleMember(userId: Long, roleType: String) = {
-    UsersDAO.deleteRoleMember(userId, roleType)
+    UsersDAO.deleteRoleMember(userId, roleType).get
   }
   
   override def addRoleMembers(newMembers: Seq[UserRoleMember]): DatabaseResult = {

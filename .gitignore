@@ -1,0 +1,13 @@
+/target/
+/logs/
+/bin/
+/project/project/
+/project/target/
+/.cache-main
+/.cache-tests
+/node_modules/
+/log/
+.cache
+.classpath
+.project
+.settings/
