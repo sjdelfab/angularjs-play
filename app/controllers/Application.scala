@@ -75,43 +75,55 @@ class Application @Inject() (userSession: UserSession, userService: UserService)
    *
    * @return The token needed for subsequent requests
    */
-  def login() = Action.async { request =>
-      scala.concurrent.Future {      
+  def login() = Action.async { request =>           
 	    request.body.asJson.map { json =>
 	      json.validate[LoginCredentials].fold(
 		      errors => {
-		        Logger.info("Invalid JSON request: " + JsError.toFlatJson(errors))
-		        BadRequest("Invalid request")
+		        scala.concurrent.Future {
+  		        Logger.info("Invalid JSON request: " + JsError.toJson(errors))
+  		        BadRequest("Invalid request")
+		        }
 		      },
 		      credentials => {
 		        PasswordCrypt.encrypt(credentials.password) ifSome { encryptedPassword =>
 		            performLogin(credentials.email,encryptedPassword)
 		        } otherwise {
-               Logger.info("Attempting login for user '" + credentials.email + "'. Invalid username/password")
-		           BadRequest(Json.obj("login_error_status" -> "INVALID_USERNAME_PASSWORD"))
+		           scala.concurrent.Future {
+                 Logger.info("Attempting login for user '" + credentials.email + "'. Invalid username/password")
+  		           BadRequest(Json.obj("login_error_status" -> "INVALID_USERNAME_PASSWORD"))
+		           }
 		        }
 		      }
 	    )
 	    }.getOrElse {
-	       BadRequest("Expecting Json data")
+	       scala.concurrent.Future {
+	          BadRequest("Expecting Json data")
+	       }
 	    }
-     }
+     
   }
 
   private def performLogin(email: String, encryptedPassword: String) = {
-    userService.authenticate(email, encryptedPassword) match {
-      case SuccessfulLogin(user) => {
-        val token = UUID.randomUUID.toString
-        val encryptedToken = Crypto.encryptAES(token)
-        val userRoles = userService.getRoles(user.id.get)
-        userSession.register(token, new InternalUser(user.email,user.id.get,Some(userRoles)))
-        Ok(Json.obj("token" -> encryptedToken, "user" -> Json.toJson(user)))
-          .withCookies(Cookie(AUTH_TOKEN_COOKIE_KEY, encryptedToken, None, httpOnly = false))
-          .withNewSession
-      }
-      case InvalidLoginAttempt() => BadRequest(Json.obj("login_error_status" -> "INVALID_USERNAME_PASSWORD"))
-      case AccountLocked() => BadRequest(Json.obj("login_error_status" -> "ACCOUNT_LOCKED"))
-    }
+    val actions = for {
+        loginResult <- userService.authenticate(email, encryptedPassword) 
+        result <- {
+            loginResult match {
+              case SuccessfulLogin(user) => {
+                val token = UUID.randomUUID.toString
+                val encryptedToken = Crypto.encryptAES(token)
+                userService.getRoles(user.id.get) map { userRoles => 
+                  userSession.register(token, new InternalUser(user.email,user.id.get,Some(userRoles)))
+                  Ok(Json.obj("token" -> encryptedToken, "user" -> Json.toJson(user)))
+                    .withCookies(Cookie(AUTH_TOKEN_COOKIE_KEY, encryptedToken, None, httpOnly = false))
+                    .withNewSession
+                }
+              }
+              case InvalidLoginAttempt() => scala.concurrent.Future{BadRequest(Json.obj("login_error_status" -> "INVALID_USERNAME_PASSWORD"))}
+              case AccountLocked() => scala.concurrent.Future{BadRequest(Json.obj("login_error_status" -> "ACCOUNT_LOCKED"))}
+            }
+        }  
+    } yield result
+    actions
   }
   
   /**

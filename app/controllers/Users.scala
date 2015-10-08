@@ -41,15 +41,21 @@ import play.api.libs.json.__
 import play.api.mvc.Controller
 import play.api.mvc.Result
 import scalaext.OptionExt.extendOption
-import services.ForeignKeyConstraintViolation
+import security.InternalUser
 import services.SuccessInsert
 import services.SuccessUpdate
+import services.SuccessfulLogin
 import services.UniqueConstraintViolation
 import services.UserService
 import services.UserSession
 import utils.PasswordCrypt
-import security.InternalUser
-import services.SuccessfulLogin
+import scala.concurrent.ExecutionContext.Implicits.global
+import services.ForeignKeyConstraintViolation
+import java.util.concurrent.TimeoutException
+import play.api.mvc.Action
+import play.api.mvc.Request
+import play.api.mvc.BodyParser
+import scala.concurrent.Future
 
 @Singleton
 class Users @Inject() (userSession: UserSession, userService: UserService) extends Controller with Security {
@@ -68,15 +74,21 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
     *
     * @return The user in JSON format.
     */
-  def currentLoggedInUser() =  ValidUserAction(parse.empty) { token => sessionUser => implicit request =>
-     Ok(Json.toJson(userService.findOneById(sessionUser.userId)))
+  def currentLoggedInUser() =  ValidUserFutureAction(parse.empty) { token => sessionUser => implicit request =>
+    userService.findOneById(sessionUser.userId).map { user =>
+       Ok(Json.toJson(user))
+    } .recover {
+      case ex: TimeoutException =>
+        Logger.error("Problem found in employee delete process")
+        InternalServerError(ex.getMessage)
+     }
   }
 
-  def createUser() = Restrict(parse.json)(Array("admin")) { token => sessionUser => implicit request =>
+  def createUser() = RestrictFuture(parse.json)(Array("admin")) { token => sessionUser => implicit request =>
     request.body.validate[User].fold(
         errors => {
           Logger.info("User: " + sessionUser.userEmail + ". Creating User: Invalid JSON request: " + JsError.toJson(errors))
-          BadRequest("Invalid request")
+          Future{BadRequest("Invalid request")}
         },
         user => {
            user.password ifSome { enteredPassword =>
@@ -85,36 +97,37 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
                   createNewUser(sessionUser,user,encryptedPassword)
                 } otherwise {
                   Logger.info("User: " + sessionUser.userEmail + ". Create User: Invalid Password")
-                  Ok(Json.obj("status" -> "INVALID_PASSWORD"))
+                  Future{Ok(Json.obj("status" -> "INVALID_PASSWORD"))}
                 }
               } else {
                 Logger.info("User: " + sessionUser.userEmail + ". Create User: Password not strong enough")
                 val msg = Play.current.configuration.getString(PASSWORD_POLICY_MESSAGE).get
-                Ok(Json.obj("status" -> "PASSWORD_NOT_STRONG_ENOUGH", "message" -> msg))
+                Future{Ok(Json.obj("status" -> "PASSWORD_NOT_STRONG_ENOUGH", "message" -> msg))}
               }
            } otherwise {
              Logger.info("User: " + sessionUser.userEmail + ". Create User: Invalid Request")
-             BadRequest("Invalid request")
+             Future{BadRequest("Invalid request")}
            }
         })
   }
 
-  private def createNewUser(sessionUser: InternalUser, user: User, encryptedPassword: String):Result = {
-    userService.createUser(user,encryptedPassword) match {
-      case SuccessInsert(newUserId) => {
-        Logger.info("User: " + sessionUser.userEmail + ". Create User: " + user.email)
-        Ok(Json.obj("id" -> IndirectReferenceMapper.convertInternalIdToExternalised(newUserId)))
-      }
-      case UniqueConstraintViolation() => {
-        Logger.info("User: " + sessionUser.userEmail + ". Create User: Failed to create due to unique constraints violation - " + user.email)
-        Ok(Json.obj("status" -> "UNIQUE_CONSTRAINTS_VIOLATION"))
-      }
-      case _ => {
-        Logger.info("User: " + sessionUser.userEmail + ". Create User: Internal Server Error")
-        InternalServerError("Failed to update user due to server error")
+  private def createNewUser(sessionUser: InternalUser, user: User, encryptedPassword: String):Future[Result] = {
+    userService.createUser(user,encryptedPassword) map { result =>
+      result match {
+        case SuccessInsert(newUserId) => {
+          Logger.info("User: " + sessionUser.userEmail + ". Create User: " + user.email)
+          Ok(Json.obj("id" -> IndirectReferenceMapper.convertInternalIdToExternalised(newUserId)))
+        }
+        case UniqueConstraintViolation() => {
+          Logger.info("User: " + sessionUser.userEmail + ". Create User: Failed to create due to unique constraints violation - " + user.email)
+          Ok(Json.obj("status" -> "UNIQUE_CONSTRAINTS_VIOLATION"))
+        }
+        case _ => {
+          Logger.info("User: " + sessionUser.userEmail + ". Create User: Internal Server Error")
+          InternalServerError("Failed to update user due to server error")
+        }
       }
     }
-
   }
   
   implicit val UserFromJson = (
@@ -131,178 +144,249 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
       }
     })
 
-  def updateUser() = Restrict(parse.json)(Array("admin")) { token => sessionUser => implicit request =>
+  def updateUser() = RestrictFuture(parse.json)(Array("admin")) { token => sessionUser => implicit request =>
       request.body.validate[User].fold(
         errors => {
           Logger.info("User: " + sessionUser.userEmail + ". Update User: Invalid JSON request: " + JsError.toJson(errors))
-          BadRequest("Invalid request")
+          Future{BadRequest("Invalid request")}
         },
         user => {
           user.id ifSome { updatedUserId =>
-              userService.updateUser(user) match {
-                case SuccessUpdate(rowsUpdated) => {
-                  Logger.info("User: " + sessionUser.userEmail + ". Update User: " + user.email)
-                  Ok(Json.obj("status" -> "OK"))
-                }
-                case UniqueConstraintViolation() => {
-                  Logger.info("User: " + sessionUser.userEmail + ". Create User: Failed to create due to unique constraints violation - " + user.email)
-                  Ok(Json.obj("status" -> "UNIQUE_CONSTRAINTS_VIOLATION"))
-                }
-                case _ => {
-                  Logger.info("User: " + sessionUser.userEmail + ". Update User: Internal Server Error")
-                  InternalServerError("Failed to update user due to server error")
+              userService.updateUser(user) map { result => result match {
+                  case SuccessUpdate(rowsUpdated) => {
+                    Logger.info("User: " + sessionUser.userEmail + ". Update User: " + user.email)
+                    Ok(Json.obj("status" -> "OK"))
+                  }
+                  case UniqueConstraintViolation() => {
+                    Logger.info("User: " + sessionUser.userEmail + ". Create User: Failed to create due to unique constraints violation - " + user.email)
+                    Ok(Json.obj("status" -> "UNIQUE_CONSTRAINTS_VIOLATION"))
+                  }
+                  case _ => {
+                    Logger.info("User: " + sessionUser.userEmail + ". Update User: Internal Server Error")
+                    InternalServerError("Failed to update user due to server error")
+                  }
                 }
               }
           } otherwise {
             Logger.info("User: " + sessionUser.userEmail + ". Update User: Invalid request")
-            BadRequest("Invalid request")
+            Future{BadRequest("Invalid request")}
           }
         })
   }
 
-  def deleteUser(externalisedUserId: String) = Restrict(parse.empty)(Array("admin")) { token => sessionUser => implicit request =>
-    IndirectReferenceMapper.getExternalisedId(externalisedUserId) ifSome { internalUserId=>
-      val user = userService.findOneById(internalUserId)
-      userService.deleteUser(internalUserId) match {
-        case SuccessUpdate(rowsUpdated) => {
-            Logger.info("User: " + sessionUser.userEmail + ". Delete User: " + user.email)
-            Ok(Json.obj("status" -> "OK")) 
-        }
-        case ForeignKeyConstraintViolation() => {
-            Logger.info("User: " + sessionUser.userEmail + ". Delete User: Failed to delete due to foreign key constraints violation - " + user.email)
-            Ok(Json.obj("status" -> "FK_CONSTRAINTS_VIOLATION"))
-        }
-        case _ => {
-            Logger.info("User: " + sessionUser.userEmail + ". Delete User: Internal Server Error")
-            InternalServerError("Failed to delete user due to server error")
-        }
-      }
+  def deleteUser(externalisedUserId: String) = RestrictFuture(parse.empty)(Array("admin")) { token => sessionUser => implicit request =>
+    IndirectReferenceMapper.getExternalisedId(externalisedUserId) ifSome { internalUserId =>
+      val actions = for {
+        user <- userService.findOneById(internalUserId)
+        updateResult <- 
+            userService.deleteUser(internalUserId) map { result => 
+              result match {
+                  case SuccessUpdate(rowsUpdated) => {
+                      Logger.info("User: " + sessionUser.userEmail + ". Delete User: " + user.email)
+                      Ok(Json.obj("status" -> "OK")) 
+                  }
+                  case ForeignKeyConstraintViolation() => {
+                      Logger.info("User: " + sessionUser.userEmail + ". Delete User: Failed to delete due to foreign key constraints violation - " + user.email)
+                      Ok(Json.obj("status" -> "FK_CONSTRAINTS_VIOLATION"))
+                  }
+                  case _ => {
+                      Logger.info("User: " + sessionUser.userEmail + ". Delete User: Internal Server Error")
+                      InternalServerError("Failed to delete user due to server error")
+                  }
+              }
+            }
+      } yield updateResult
+      actions
     } otherwise {
-       Logger.info("User: " + sessionUser.userEmail + ". Delete User: Invalid Request")
-       BadRequest("Invalid request")
+      scala.concurrent.Future {
+         Logger.info("User: " + sessionUser.userEmail + ". Delete User: Invalid Request")
+         BadRequest("Invalid request")
+      }
     }
   }
   
-  def searchUser(searchString: String) = ValidUserAction(parse.empty) { token => sessionUser => implicit request =>
-    val foundUsers = userService.searchUsers(searchString)
-    Ok(Json.toJson(foundUsers))
+  def searchUser(searchString: String) = ValidUserFutureAction(parse.empty) { token => sessionUser => implicit request =>
+    userService.searchUsers(searchString) map { foundUsers => 
+       Ok(Json.toJson(foundUsers))
+    }
   }
 
-  def enableUser(externalisedUserId: String, status: Boolean) = Restrict(parse.empty)(Array("admin")) { token => sessionUser => implicit request =>
+  def enableUser(externalisedUserId: String, status: Boolean) = RestrictFuture(parse.empty)(Array("admin")) { token => sessionUser => implicit request =>
     IndirectReferenceMapper.getExternalisedId(externalisedUserId) ifSome { internalUserId=>
-      userService.enableUser(internalUserId,status)
-      val user = userService.findOneById(internalUserId)
-      Logger.info("User: " + sessionUser.userEmail + ". Enable/Disable User: " + user.email)
-      Ok
+      val actions = for {
+        user <- userService.findOneById(internalUserId)
+        updateResult <- 
+          userService.enableUser(internalUserId,status) map { result =>      
+             Logger.info("User: " + sessionUser.userEmail + ". Enable/Disable User: " + user.email)
+             Ok
+          }
+      } yield updateResult
+      actions
     } otherwise {
-       Logger.info("User: " + sessionUser.userEmail + ". Enable/Disable User: Invalid Request")
-       BadRequest("Invalid request")
+       scala.concurrent.Future {
+         Logger.info("User: " + sessionUser.userEmail + ". Enable/Disable User: Invalid Request")
+         BadRequest("Invalid request")
+       }
     }
   }
   
-  def unlockUser(externalisedUserId: String) = Restrict(parse.empty)(Array("admin")) { token => sessionUser => implicit request =>
+  def unlockUser(externalisedUserId: String) = RestrictFuture(parse.empty)(Array("admin")) { token => sessionUser => implicit request =>
     IndirectReferenceMapper.getExternalisedId(externalisedUserId) ifSome { internalUserId=>
-      userService.unlockUser(internalUserId)
-      val user = userService.findOneById(internalUserId)
-      Logger.info("User: " + sessionUser.userEmail + ". Unlock User: " + user.email)
-      Ok
+      val actions = for {
+        user <- userService.findOneById(internalUserId)
+        updateResult <- 
+           userService.unlockUser(internalUserId) map { result =>
+             Logger.info("User: " + sessionUser.userEmail + ". Unlock User: " + user.email)
+             Ok 
+           }        
+      } yield updateResult
+      actions
     } otherwise {
-       Logger.info("User: " + sessionUser.userEmail + ". Unlock User: Invalid Request")
-       BadRequest("Invalid request")
+      scala.concurrent.Future {
+         Logger.info("User: " + sessionUser.userEmail + ". Unlock User: Invalid Request")
+         BadRequest("Invalid request")
+      }
     }
   }
   
-  def changeUserPassword(externalisedUserId: String, newPassword: String) = Restrict(parse.empty)(Array("admin")) { token => sessionUser => implicit request =>
+  def changeUserPassword(externalisedUserId: String, newPassword: String) = RestrictFuture(parse.empty)(Array("admin")) { token => sessionUser => implicit request =>
     IndirectReferenceMapper.getExternalisedId(externalisedUserId) ifSome { internalUserId=>
       if (isPasswordStrongEnough(newPassword)) {
          PasswordCrypt.encrypt(newPassword) ifSome { encryptedPassword => 
-             userService.changeUserPassword(internalUserId,encryptedPassword)
-             val user = userService.findOneById(internalUserId)
-             Logger.info("User: " + sessionUser.userEmail + ". Change User Password: " + user.email)
-             Ok(Json.obj("status" -> "OK"))
+             val actions = for {
+               user <- userService.findOneById(internalUserId)
+               updateResult <- 
+                  userService.changeUserPassword(internalUserId,encryptedPassword) map { result =>  
+                     Logger.info("User: " + sessionUser.userEmail + ". Change User Password: " + user.email)
+                     Ok(Json.obj("status" -> "OK")) 
+                  }
+               
+             } yield updateResult
+             actions
          } otherwise {
-             Logger.info("User: " + sessionUser.userEmail + ". Change User Password: Invalid Password")
-             Ok(Json.obj("status" -> "INVALID_PASSWORD"))
+             scala.concurrent.Future {
+               Logger.info("User: " + sessionUser.userEmail + ". Change User Password: Invalid Password")
+               Ok(Json.obj("status" -> "INVALID_PASSWORD"))
+             }
          }
       } else {
-         Logger.info("User: " + sessionUser.userEmail + ". Change User Password: Password not strong enough")
-         val msg = Play.current.configuration.getString(PASSWORD_POLICY_MESSAGE).get
-         Ok(Json.obj("status" -> "PASSWORD_NOT_STRONG_ENOUGH","message" -> msg))
+         scala.concurrent.Future {
+           Logger.info("User: " + sessionUser.userEmail + ". Change User Password: Password not strong enough")
+           val msg = Play.current.configuration.getString(PASSWORD_POLICY_MESSAGE).get
+           Ok(Json.obj("status" -> "PASSWORD_NOT_STRONG_ENOUGH","message" -> msg))
+         }
       }
     } otherwise {
-       Logger.info("User: " + sessionUser.userEmail + ". Change User Password: Invalid Request")
-       BadRequest("Invalid request")
+       scala.concurrent.Future {
+         Logger.info("User: " + sessionUser.userEmail + ". Change User Password: Invalid Request")
+         BadRequest("Invalid request")
+       }
     }
   }
   
-  def getUsers(page: Int) = Restrict(parse.empty)(Array("admin")) { token => sessionUser => implicit request =>
+  def getUsers(page: Int) = RestrictFuture(parse.empty)(Array("admin")) { token => sessionUser => implicit request =>
     val pageSize = Play.current.configuration.getInt(PAGE_SIZE).getOrElse(50)
-    val (foundUsers,total) = userService.getUsers(page,pageSize)
-    val numberOfPages: Int = (total / pageSize) + 1
-    val data = Json.obj("users" -> Json.toJson(foundUsers), "total" -> total, "numberOfPages" -> numberOfPages, "pageSize" -> pageSize)
-    Ok(data)
+    val actions = for {
+      foundUsers <- userService.getUsers(page,pageSize)
+      result <- {
+        userService.getTotalUserCount() map { total =>
+            val numberOfPages: Int = (total / pageSize) + 1
+            val data = Json.obj("users" -> Json.toJson(foundUsers), "total" -> total, "numberOfPages" -> numberOfPages, "pageSize" -> pageSize)
+            Ok(data)      
+        }        
+      }
+    } yield result
+    actions    
   }
   
-  def getUser(externalisedUserId: String) = Restrict(parse.empty)(Array("admin")) { token => sessionUser => implicit request =>
+  def getUser(externalisedUserId: String) = RestrictFuture(parse.empty)(Array("admin")) { token => sessionUser => implicit request =>
     IndirectReferenceMapper.getExternalisedId(externalisedUserId) ifSome { internalUserId=>
-      val user = userService.findOneById(internalUserId)
-      val roles = userService.getRoles(internalUserId)
-      val toReturn = Json.obj("user" -> Json.toJson(user), "roles" -> Json.toJson(roles))
-      Ok(toReturn)
+      val actions = for {
+        user <- userService.findOneById(internalUserId)
+        result <- {
+          userService.getRoles(internalUserId) map { roles =>
+             val toReturn = Json.obj("user" -> Json.toJson(user), "roles" -> Json.toJson(roles))
+             Ok(toReturn)   
+          }
+        }
+      } yield result
+      actions
     } otherwise {
-       Logger.info("User: " + sessionUser.userEmail + ". Get User: Invalid Request")
-       BadRequest("Invalid request")
+       scala.concurrent.Future {
+         Logger.info("User: " + sessionUser.userEmail + ". Get User: Invalid Request")
+         BadRequest("Invalid request")
+       }
     }
   }
 
-  def getMyProfile() = ValidUserAction(parse.empty) { token => sessionUser => implicit request =>
-      val user = userService.findOneById(sessionUser.userId)
-      val roles = userService.getRoles(sessionUser.userId)
-      val toReturn = Json.obj("user" -> Json.toJson(user), "roles" -> Json.toJson(roles))
-      Ok(toReturn)
+  def getMyProfile() = ValidUserFutureAction(parse.empty) { token => sessionUser => implicit request =>
+      val actions = for {
+        user <- userService.findOneById(sessionUser.userId)
+        result <- {
+          userService.getRoles(sessionUser.userId) map { roles =>
+             val toReturn = Json.obj("user" -> Json.toJson(user), "roles" -> Json.toJson(roles))
+             Ok(toReturn)   
+          }
+        }
+      } yield result
+      actions
   }
   
-  def updateMyProfile() = ValidUserAction(parse.json) { token => sessionUser => implicit request =>
+  def updateMyProfile() = ValidUserFutureAction(parse.json) { token => sessionUser => implicit request =>
       request.body.validate[User].fold(
         errors => {
-          Logger.info("User: " + sessionUser.userEmail + ". Update User: Invalid JSON request: " + JsError.toJson(errors))
-          BadRequest("Invalid request")
+          scala.concurrent.Future {
+            Logger.info("User: " + sessionUser.userEmail + ". Update User: Invalid JSON request: " + JsError.toJson(errors))
+            BadRequest("Invalid request")
+          }
         },
         user => {
           user.id ifSome { updatedUserId =>
-              var currentUser = userService.findOneById(updatedUserId)
-              currentUser.mergeEditableChanges(user)
-              userService.updateUser(currentUser) match {
-                case SuccessUpdate(rowsUpdated) => {
-                  Logger.info("User: " + sessionUser.userEmail + ". Updated Profile.")
-                  Ok(Json.obj("status" -> "OK"))
-                }
-                case _ => {
-                  Logger.info("User: " + sessionUser.userEmail + ". Update Profile: Internal Server Error")
-                  InternalServerError("Failed to update user profile due to server error")
-                }
-              }
+              val actions = for {
+                currentUser <- userService.findOneById(updatedUserId)
+                updateResult <- {
+                    currentUser.mergeEditableChanges(user)
+                    userService.updateUser(currentUser) map { updateDbResult => updateDbResult match {
+                          case SuccessUpdate(rowsUpdated) => {
+                            Logger.info("User: " + sessionUser.userEmail + ". Updated Profile.")
+                            Ok(Json.obj("status" -> "OK"))
+                          }
+                          case _ => {
+                            Logger.info("User: " + sessionUser.userEmail + ". Update Profile: Internal Server Error")
+                            InternalServerError("Failed to update user profile due to server error")
+                          }
+                       }
+                    }
+                  }
+              } yield updateResult
+              actions
           } otherwise {
-            Logger.info("User: " + sessionUser.userEmail + ". Update User Profile: Invalid request")
-            BadRequest("Invalid request")
+            scala.concurrent.Future {
+              Logger.info("User: " + sessionUser.userEmail + ". Update User Profile: Invalid request")
+              BadRequest("Invalid request")
+            }
           }
         })
   }
   
-  def changeMyPassword(currentPassword: String, newPassword: String) = ValidUserAction(parse.empty) { token => sessionUser => implicit request =>
+  def changeMyPassword(currentPassword: String, newPassword: String) = ValidUserFutureAction(parse.empty) { token => sessionUser => implicit request =>
     PasswordCrypt.encrypt(currentPassword) ifSome { currentEncryptedPassword =>
-      userService.authenticate(sessionUser.userEmail, currentEncryptedPassword) match {
-        case SuccessfulLogin(user) => {
-             performChangeOwnPassword(newPassword,user)
-        }
-        case _ => {
-           Logger.info("User: " + sessionUser.userEmail + ". Change Own Password: Invalid current password")
-           Ok(Json.obj("status" -> "INVALID_CURRENT_PASSWORD"))
-        }
-      }       
+      userService.authenticate(sessionUser.userEmail, currentEncryptedPassword) map { loginResult =>
+          loginResult match {
+            case SuccessfulLogin(user) => {
+                 performChangeOwnPassword(newPassword,user)
+            }
+            case _ => {
+               Logger.info("User: " + sessionUser.userEmail + ". Change Own Password: Invalid current password")
+               Ok(Json.obj("status" -> "INVALID_CURRENT_PASSWORD"))
+            }
+          }
+      }
     } otherwise {
-       Logger.info("User: " + sessionUser.userEmail + ". Change Own Password: Invalid Request")
-       BadRequest("Invalid request")
+        scala.concurrent.Future {
+          Logger.info("User: " + sessionUser.userEmail + ". Change Own Password: Invalid Request")
+          BadRequest("Invalid request")
+        }
     }
   }
 
@@ -323,46 +407,54 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
     }
   }
   
-  def getRoleMembers(roleType: String) = Restrict(parse.empty)(Array("admin")) { token => sessionUser => implicit request =>
-    val roleMembers = userService.getRoleMembers(roleType)
-    Ok(Json.toJson(roleMembers))
-  }
-  
-  def getRoleNonMembers(roleType: String) = Restrict(parse.empty)(Array("admin")) { token => sessionUser => implicit request =>
-    val roleMembers = userService.getRoleNonMembers(roleType)
-    Ok(Json.toJson(roleMembers))
-  }
-  
-  def deleteRoleMember(externalisedUserId: String, roleType: String) = Restrict(parse.empty)(Array("admin")) { token => sessionUser => implicit request =>
-    IndirectReferenceMapper.getExternalisedId(externalisedUserId) ifSome { internalUserId=>
-      userService.deleteRoleMember(internalUserId,roleType)
-      val user = userService.findOneById(internalUserId)
-      Logger.info("User: " + sessionUser.userEmail + ". Delete Role: " + roleType + " from " + user.email)
-      Ok
-    } otherwise {
-       Logger.info("User: " + sessionUser.userEmail + ". Delete Role: Invalid Request")
-       BadRequest("Invalid request")
+  def getRoleMembers(roleType: String) = RestrictFuture(parse.empty)(Array("admin")) { token => sessionUser => implicit request =>
+    userService.getRoleMembers(roleType) map { roleMembers =>
+        Ok(Json.toJson(roleMembers))
     }
   }
   
-  def addUsersToRole = Restrict(parse.json)(Array("admin")) { token => sessionUser => implicit request =>
+  def getRoleNonMembers(roleType: String) = RestrictFuture(parse.empty)(Array("admin")) { token => sessionUser => implicit request =>
+    userService.getRoleNonMembers(roleType) map { nonRoleMembers =>
+        Ok(Json.toJson(nonRoleMembers))
+    }
+  }
+  
+  def deleteRoleMember(externalisedUserId: String, roleType: String) = RestrictFuture(parse.empty)(Array("admin")) { token => sessionUser => implicit request =>
+    IndirectReferenceMapper.getExternalisedId(externalisedUserId) ifSome { internalUserId=>
+      userService.deleteRoleMember(internalUserId,roleType)
+      val userFuture = userService.findOneById(sessionUser.userId)
+      userFuture.map { user =>
+          Logger.info("User: " + sessionUser.userEmail + ". Delete Role: " + roleType + " from " + user.email)
+          Ok
+      }
+    } otherwise {
+       scala.concurrent.Future {
+         Logger.info("User: " + sessionUser.userEmail + ". Delete Role: Invalid Request")
+         BadRequest("Invalid request")
+       }
+    }
+  }
+  
+  def addUsersToRole = RestrictFuture(parse.json)(Array("admin")) { token => sessionUser => implicit request =>
       request.body.validate[Seq[UserRoleMember]].fold(
         errors => {
           Logger.info("User: " + sessionUser.userEmail + ". Add Users To Role: Invalid JSON request: " + JsError.toJson(errors))
-          BadRequest("Invalid request")
+          scala.concurrent.Future {BadRequest("Invalid request")}
         },
         newRoleMembers => {
-          userService.addRoleMembers(newRoleMembers) match {
-              case SuccessUpdate(rowsUpdated) => Ok(Json.obj("status" -> "OK"))
-              case UniqueConstraintViolation() => {
-                  Logger.info("User: " + sessionUser.userEmail + ". Add Users To Role: Unique constraints violation")
-                  Ok(Json.obj("status" -> "UNIQUE_CONSTRAINTS_VIOLATION"))
+          userService.addRoleMembers(newRoleMembers) map { dbResult => 
+              dbResult match {
+                  case SuccessUpdate(rowsUpdated) => Ok(Json.obj("status" -> "OK"))
+                  case UniqueConstraintViolation() => {
+                      Logger.info("User: " + sessionUser.userEmail + ". Add Users To Role: Unique constraints violation")
+                      Ok(Json.obj("status" -> "UNIQUE_CONSTRAINTS_VIOLATION"))
+                  }
+                  case _ => {
+                      Logger.info("User: " + sessionUser.userEmail + ". Add Users To Role: Internal Server Error")
+                      InternalServerError("Failed to add role members due to server error")
+                  }
               }
-              case _ => {
-                  Logger.info("User: " + sessionUser.userEmail + ". Add Users To Role: Internal Server Error")
-                  InternalServerError("Failed to add role members due to server error")
-              }
-          }
+           }
         }
      )
   }

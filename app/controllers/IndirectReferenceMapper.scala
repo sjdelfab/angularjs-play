@@ -11,7 +11,7 @@ object IndirectReferenceMapper {
   
   def getExternalisedId(applicationRefId: String): Option[Long] = {
     try {
-      var decryptedValue = decrypt(applicationRefId.replaceAll("-","+").replaceAll("_","/"))
+      val decryptedValue = decrypt(applicationRefId.replaceAll("-","+").replaceAll("_","/"))
       Some(java.lang.Long.parseLong(decryptedValue))
     } catch {
       case ex: Throwable =>  {

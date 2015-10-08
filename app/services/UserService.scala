@@ -1,124 +1,156 @@
 package services
 
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
+import scala.util.Try
+
 import dao.UsersDAO
+import javax.inject.Inject
 import javax.inject.Singleton
+import models.ApplicationRoleMembership
 import models.User
 import models.UserRoleMember
-import models.ApplicationRoleMembership
-import org.postgresql.util.PSQLException
-import scala.util.Try
-import scala.util.Success
-import scala.util.Failure
-import scalaext.OptionExt._
 import play.api.Play
-import dao.UsersDAO
+import play.api.db.slick.DatabaseConfigProvider
+import scalaext.OptionExt._
+import slick.driver.JdbcProfile
+import slick.driver.PostgresDriver.api._
 
 trait UserService {
 
-  def findOneById(id: Long): User
+  def findOneById(id: Long): Future[User]
   
-  def authenticate(email: String, password: String): LoginResult
+  def authenticate(email: String, password: String): Future[LoginResult]
   
-  def searchUsers(searchString: String): Seq[User]
+  def searchUsers(searchString: String): Future[Seq[User]]
   
-  def getUsers(page: Int, pageSize: Int): (Seq[User],Int)
+  def getUsers(page: Int, pageSize: Int): Future[Seq[User]]
   
-  def updateUser(user: User): DatabaseResult
+  def getTotalUserCount(): Future[Int]
   
-  def createUser(user: User, encryptedPassword: String): DatabaseResult
+  def updateUser(user: User): Future[DatabaseResult]
   
-  def enableUser(userId: Long, status: Boolean): Int
+  def createUser(user: User, encryptedPassword: String): Future[DatabaseResult]
   
-  def unlockUser(userId: Long): Int
+  def enableUser(userId: Long, status: Boolean): Future[Int]
   
-  def deleteUser(userId: Long): DatabaseResult
+  def unlockUser(userId: Long): Future[Int]
   
-  def changeUserPassword(userId: Long, newPasswordEncrypted: String): Int
+  def deleteUser(userId: Long): Future[DatabaseResult]
   
-  def getRoleMembers(roleType: String): Seq[UserRoleMember]
+  def changeUserPassword(userId: Long, newPasswordEncrypted: String): Future[Int]
   
-  def getRoleNonMembers(roleType: String): Seq[UserRoleMember]
+  def getRoleMembers(roleType: String): Future[Seq[UserRoleMember]]
   
-  def deleteRoleMember(userId: Long, roleType: String): Int
+  def getRoleNonMembers(roleType: String): Future[Seq[UserRoleMember]]
   
-  def addRoleMembers(newMembers: Seq[UserRoleMember]):DatabaseResult
+  def deleteRoleMember(userId: Long, roleType: String): Future[Int]
   
-  def getRoles(userId: Long): Seq[ApplicationRoleMembership]
+  def addRoleMembers(newMembers: Seq[UserRoleMember]):Future[DatabaseResult]
+  
+  def getRoles(userId: Long): Future[Seq[ApplicationRoleMembership]]
 }
 
 @Singleton
-class UserServiceDatabase extends UserService with AbstractService {
+class UserServiceDatabase @Inject()(dbConfigProvider: DatabaseConfigProvider) extends UserService with AbstractService {
   
-  override def findOneById(id: Long): User = {
-      UsersDAO.find(id)
+  val db = dbConfigProvider.get[JdbcProfile].db
+  
+  override def findOneById(id: Long): Future[User] = {
+      db.run(UsersDAO.find(id))
   }
   
-  override def authenticate(email: String, password: String): LoginResult = {
-    UsersDAO.findByEmail(email) ifSome { user =>
-      if (user.isAccountLocked(Play.current.configuration.getInt(controllers.MAX_FAILED_LOGIN_ATTEMPTS).getOrElse(3))) {
-         AccountLocked()   
-      } else if (user.password.get == password) {
-         SuccessfulLogin(user)
-      } else {
-         UsersDAO.updatefailedLoginAttempt(user.id.get,user.failedLoginAttempts + 1)
-         InvalidLoginAttempt()
-      }
-    } otherwise {
-      InvalidLoginAttempt()
-    }    
+  override def authenticate(email: String, password: String): Future[LoginResult] = {
+    db.run(UsersDAO.findByEmail(email)) map { userOption =>
+        userOption ifSome { user =>
+          if (user.isAccountLocked(Play.current.configuration.getInt(controllers.MAX_FAILED_LOGIN_ATTEMPTS).getOrElse(3))) {
+             AccountLocked()   
+          } else if (user.password.get == password) {
+             SuccessfulLogin(user)
+          } else {
+             UsersDAO.updatefailedLoginAttempt(user.id.get,user.failedLoginAttempts + 1)
+             InvalidLoginAttempt()
+          }
+        } otherwise {
+          InvalidLoginAttempt()
+        }
+    }
   }
   
-  override def unlockUser(userId: Long): Int = {
-    UsersDAO.updatefailedLoginAttempt(userId,0)
+  override def unlockUser(userId: Long): Future[Int] = {    
+    db.run(UsersDAO.updatefailedLoginAttempt(userId,0).transactionally) map { result => result } 
   }
   
-  override def deleteUser(userId: Long): DatabaseResult = {
-    translateDatabaseUpdate(UsersDAO.delete(userId))
+  override def deleteUser(userId: Long): Future[DatabaseResult] = {
+    db.run(UsersDAO.delete(userId).asTry.transactionally) map { result =>
+        translateDatabaseUpdate(result)
+    }
   }
   
-  override def searchUsers(searchString: String): Seq[User] = {
-    UsersDAO.searchByNameAndEmail("%" + searchString + "%")
+  override def searchUsers(searchString: String): Future[Seq[User]] = {
+    db.run(UsersDAO.searchByNameAndEmail("%" + searchString + "%").result)
   }
 
-  override def getUsers(page: Int, pageSize: Int): (Seq[User],Int) = {
-    UsersDAO.allPaged(page, pageSize)
+  override def getUsers(page: Int, pageSize: Int): Future[Seq[User]] = {
+    db.run(UsersDAO.allPaged(page, pageSize))
   }
   
-  override def updateUser(user: User) = {    
-    translateDatabaseUpdate(UsersDAO.update(user))
+  override def getTotalUserCount(): Future[Int] = {
+    db.run(UsersDAO.getTotalUserCount())
+  }
+  
+  override def updateUser(user: User) = {
+    val query = UsersDAO.update(user)
+    db.run(query.asTry.transactionally) map { result =>
+       translateDatabaseUpdate(result)
+    } 
   }
   
   override def enableUser(userId: Long, status: Boolean) = {
-    UsersDAO.enableUser(userId,status)
+    db.run(UsersDAO.enableUser(userId,status).transactionally) map { result => result } 
   }
   
   override def changeUserPassword(userId: Long, newPasswordEncrypted: String) = {
-    UsersDAO.changeUserPassword(userId,newPasswordEncrypted)
+    db.run(UsersDAO.changeUserPassword(userId,newPasswordEncrypted).transactionally) map { result => result }
   }
   
   override def createUser(user: User, encryptedPassword: String) = {
     val newUser = User(None,user.email,Some(encryptedPassword),user.name,0,user.enabled)
-    translateDatabaseInsert(UsersDAO.create(newUser))
+    val query = UsersDAO.create(newUser)
+    db.run(query.asTry.transactionally) map { result =>
+       translateDatabaseInsert(result)
+    }    
   }
   
-  override def getRoleMembers(roleType: String): Seq[UserRoleMember] = {
-    UsersDAO.getRoleMembers(roleType)
+  override def getRoleMembers(roleType: String): Future[Seq[UserRoleMember]] = {
+    val query = UsersDAO.getRoleMembers(roleType).result
+    db.run(query) map { result =>
+      result map {
+         case((userId:Long,userName:String,userEmail:String,roleType:String)) => UserRoleMember(userId,userName,userEmail,roleType)  
+      }      
+    }
   }
   
-  override def getRoleNonMembers(roleType: String): Seq[UserRoleMember] = {
-    UsersDAO.getRoleNonMembers(roleType)
+  override def getRoleNonMembers(roleType: String): Future[Seq[UserRoleMember]] = {
+    db.run(UsersDAO.getRoleNonMembers(roleType))
   }
   
   override def deleteRoleMember(userId: Long, roleType: String) = {
-    UsersDAO.deleteRoleMember(userId, roleType).get
+    val query = UsersDAO.deleteRoleMember(userId, roleType)
+    db.run(query.asTry.transactionally) map { result => result.get }
   }
   
-  override def addRoleMembers(newMembers: Seq[UserRoleMember]): DatabaseResult = {
-    translateDatabaseBatchInsert(UsersDAO.addRoleMembers(newMembers),newMembers.length)
+  override def addRoleMembers(newMembers: Seq[UserRoleMember]): Future[DatabaseResult] = {
+    val query = UsersDAO.addRoleMembers(newMembers)
+    db.run(query.asTry.transactionally) map { rowsInserted =>
+        translateDatabaseBatchInsertOption(rowsInserted,newMembers.length)
+    }      
   }
   
-  override def getRoles(userId: Long): Seq[ApplicationRoleMembership] = {
-    UsersDAO.getRoles(userId)
+  override def getRoles(userId: Long): Future[Seq[ApplicationRoleMembership]] = {
+    db.run(UsersDAO.getRoles(userId).result) map { result =>
+        result.toSet[ApplicationRoleMembership].toList
+    }
   }
 }
 

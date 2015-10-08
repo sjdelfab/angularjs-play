@@ -24,6 +24,8 @@ import utils.PasswordCrypt
 import org.scalatest.BeforeAndAfterAll
 import scala.concurrent.duration.Duration
 import scala.concurrent.Await
+import scala.concurrent.Future
+import scala.concurrent.ExecutionContext.Implicits.global
 
 @ChromeBrowser
 class UsersManagementSpec extends PlaySpec with OneServerPerSuite with OneBrowserPerSuite with ChromeFactory  with SecurityCookieTokens with MockitoSugar with BeforeAndAfterAll {
@@ -36,14 +38,14 @@ class UsersManagementSpec extends PlaySpec with OneServerPerSuite with OneBrowse
         val userService = mock[UserService]
         val user = User(Some(1),"simon@email.com",Some("password"),"Simon",0,true)
         val users = (ArraySeq(user),1)
-        when(userService.getUsers(1,50)).thenReturn(users)        
-        when(userService.findOneById(1)).thenReturn(user)
+        when(userService.getUsers(1,50)).thenReturn(Future{users._1})        
+        when(userService.findOneById(1)).thenReturn(Future{user})
         val allRoles: Seq[ApplicationRoleMembership] = List(ApplicationRoleMembership(1l,"admin"),ApplicationRoleMembership(1l,"resource_manager"))
-        when(userService.getRoles(1l)).thenReturn(allRoles)
+        when(userService.getRoles(1l)).thenReturn(Future{allRoles})
         val encryptedPassword = PasswordCrypt.encrypt("password").get
         
-        when(userService.authenticate("simon@email.com",encryptedPassword)).thenReturn(SuccessfulLogin(user))
-        when(userService.authenticate("wrong@email.com",encryptedPassword)).thenReturn(InvalidLoginAttempt())
+        when(userService.authenticate("simon@email.com",encryptedPassword)).thenReturn(Future{SuccessfulLogin(user)})
+        when(userService.authenticate("wrong@email.com",encryptedPassword)).thenReturn(Future{InvalidLoginAttempt()})
         
         val userSession = createAdminUserSession();
               

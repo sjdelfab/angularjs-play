@@ -77,4 +77,37 @@ trait AbstractService {
     }
   }
   
+  def translateDatabaseBatchInsertOption(databaseOperation: Try[Option[Int]], expectedRows: Int):DatabaseResult = {
+    databaseOperation match {
+      case Success(rowsInsertedOption) => {
+        val rowsInserted = rowsInsertedOption.get
+        if (rowsInserted != expectedRows) {
+          UnsuccessfulUpdate()
+        } else {
+          SuccessUpdate(rowsInserted)
+        }        
+      }
+      case Failure(t: PSQLException) => {
+          val errorState = t.getServerErrorMessage().getSQLState()
+          if (errorState == "23505") {
+              UniqueConstraintViolation()    
+          } else {
+              FatalDatabaseError()
+          }
+      }
+      case Failure(ex: java.sql.BatchUpdateException) => {
+          val t:PSQLException = ex.getNextException.asInstanceOf[PSQLException]
+          val errorState = t.getServerErrorMessage().getSQLState()
+          if (errorState == "23505") {
+              UniqueConstraintViolation()    
+          } else {
+              FatalDatabaseError()
+          }
+      }
+      case Failure(_) => {
+          FatalDatabaseError()
+      }
+    }
+  }
+  
 }

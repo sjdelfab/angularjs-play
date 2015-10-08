@@ -4,14 +4,10 @@ import scala.collection.mutable.ArraySeq
 import scala.concurrent.Await
 import scala.concurrent.Future
 import scala.concurrent.duration.DurationLong
-
 import org.junit.runner.RunWith
 import org.mockito.Mockito.when
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
-
-import javax.inject.Inject
-import javax.inject.Singleton
 import models.ApplicationRoleMembership
 import models.User
 import models.UserRoleMember
@@ -24,15 +20,16 @@ import play.api.test.FakeRequest
 import play.api.test.Helpers.contentAsString
 import play.api.test.Helpers.defaultAwaitTimeout
 import play.api.test.Helpers.running
-import services.AccountLocked
-import services.ForeignKeyConstraintViolation
-import services.InvalidLoginAttempt
 import services.SuccessInsert
 import services.SuccessUpdate
-import services.SuccessfulLogin
 import services.UniqueConstraintViolation
 import services.UserService
+import scala.concurrent.ExecutionContext.Implicits.global
+import services.ForeignKeyConstraintViolation
+import services.SuccessfulLogin
+import services.AccountLocked
 import utils.PasswordCrypt
+import services.InvalidLoginAttempt
 
 @RunWith(classOf[JUnitRunner])
 class UsersTest extends Specification with AbstractControllerTest  {
@@ -101,7 +98,7 @@ class UsersTest extends Specification with AbstractControllerTest  {
          ) {
            val jsonRequest: JsValue = Json.obj("id" -> "new","name" -> "foobar", "email" -> "foo@email.com", "enabled" -> true, "password" -> "PassWord504")
            val result: Future[Result] = executeAdminUserJsonOperation(jsonRequest) { usersController => request =>
-             when(usersController.getUserService().createUser(any[User],any[String])).thenReturn(UniqueConstraintViolation())
+             when(usersController.getUserService().createUser(any[User],any[String])).thenReturn(Future{UniqueConstraintViolation()})
              usersController.createUser.apply(request)
            }
            Await.result(result, DurationLong(5l) seconds)
@@ -116,7 +113,7 @@ class UsersTest extends Specification with AbstractControllerTest  {
          ) {
            val jsonRequest: JsValue = Json.obj("id" -> "new","name" -> "foobar", "email" -> "foo@email.com", "enabled" -> true, "password" -> "PassWord504")
            val result: Future[Result] = executeAdminUserJsonOperation(jsonRequest) { usersController => request =>
-             when(usersController.getUserService().createUser(any[User],any[String])).thenReturn(SuccessInsert(1l))
+             when(usersController.getUserService().createUser(any[User],any[String])).thenReturn(Future{SuccessInsert(1l)})
              usersController.createUser.apply(request)
            }
            Await.result(result, DurationLong(5l) seconds)
@@ -179,7 +176,7 @@ class UsersTest extends Specification with AbstractControllerTest  {
            val externalisedUserId = IndirectReferenceMapper.convertInternalIdToExternalised(1)
            val jsonRequest: JsValue = Json.obj("id" -> externalisedUserId, "name" -> "foobar", "email" -> "foo@email.com", "enabled" -> true)
            val result: Future[Result] = executeAdminUserJsonOperation(jsonRequest) { usersController => request =>
-             when(usersController.getUserService.updateUser(any[User])).thenReturn(UniqueConstraintViolation())
+             when(usersController.getUserService.updateUser(any[User])).thenReturn(Future{UniqueConstraintViolation()})
              usersController.updateUser.apply(request)
            }
            Await.result(result, DurationLong(5l) seconds)
@@ -195,7 +192,7 @@ class UsersTest extends Specification with AbstractControllerTest  {
            val externalisedUserId = IndirectReferenceMapper.convertInternalIdToExternalised(1)
            val jsonRequest: JsValue = Json.obj("id" -> externalisedUserId, "name" -> "foobar", "email" -> "foo@email.com", "enabled" -> true)
            val result: Future[Result] = executeAdminUserJsonOperation(jsonRequest) { usersController => request =>
-             when(usersController.getUserService.updateUser(any[User])).thenReturn(SuccessUpdate(1))
+             when(usersController.getUserService.updateUser(any[User])).thenReturn(Future{SuccessUpdate(1)})
              usersController.updateUser.apply(request)
            }
            Await.result(result, DurationLong(5l) seconds)
@@ -216,8 +213,8 @@ class UsersTest extends Specification with AbstractControllerTest  {
            val roles: Seq[ApplicationRoleMembership] = List(ApplicationRoleMembership(1l,"admin"))
            
            val result: Future[Result] = executeAdminUserOperation { usersController => request =>
-             when(usersController.getUserService.findOneById(1)).thenReturn(user)
-             when(usersController.getUserService.getRoles(1)).thenReturn(roles)
+             when(usersController.getUserService.findOneById(1)).thenReturn(Future{user})
+             when(usersController.getUserService.getRoles(1)).thenReturn(Future{roles})
              usersController.getUser(externalisedUserId).apply(request)
            }
            Await.result(result, DurationLong(5l) seconds)
@@ -237,8 +234,9 @@ class UsersTest extends Specification with AbstractControllerTest  {
            val externalisedUserId = IndirectReferenceMapper.convertInternalIdToExternalised(1)
            val users = (ArraySeq(User(Some(1),"simon@email.com",Some("password"),"Simon",0,true)),1)
            val result: Future[Result] = executeAdminUserOperation { usersController => request =>
-             when(usersController.getUserService.getUsers(1,50)).thenReturn(users)
-             when(usersController.getUserService.getRoles(1)).thenReturn(ArraySeq[ApplicationRoleMembership]())
+             when(usersController.getUserService.getUsers(1,50)).thenReturn(Future{users._1})
+             when(usersController.getUserService.getTotalUserCount()).thenReturn(Future{users._2})
+             when(usersController.getUserService.getRoles(1)).thenReturn(Future{ArraySeq[ApplicationRoleMembership]()})
              usersController.getUsers(1).apply(request)
            }
            Await.result(result, DurationLong(5l) seconds)
@@ -286,8 +284,8 @@ class UsersTest extends Specification with AbstractControllerTest  {
            val user = User(Some(1),"simon@email.com",Some("password"),"Simon",0,true)
            val externalisedUserId = IndirectReferenceMapper.convertInternalIdToExternalised(1)
            val result: Future[Result] = executeAdminUserOperation { usersController => request => 
-             when(usersController.getUserService.deleteUser(any[Long])).thenReturn(ForeignKeyConstraintViolation())
-             when(usersController.getUserService.findOneById(1)).thenReturn(user)
+             when(usersController.getUserService.deleteUser(any[Long])).thenReturn(Future{ForeignKeyConstraintViolation()})
+             when(usersController.getUserService.findOneById(1)).thenReturn(Future{user})
              usersController.deleteUser(externalisedUserId).apply(request)
            }
            Await.result(result, DurationLong(5l) seconds)
@@ -303,8 +301,8 @@ class UsersTest extends Specification with AbstractControllerTest  {
            val user = User(Some(1),"simon@email.com",Some("password"),"Simon",0,true)
            val externalisedUserId = IndirectReferenceMapper.convertInternalIdToExternalised(1)
            val result: Future[Result] = executeAdminUserOperation { usersController => request => 
-             when(usersController.getUserService.deleteUser(any[Long])).thenReturn(SuccessUpdate(1))
-             when(usersController.getUserService.findOneById(1)).thenReturn(user)
+             when(usersController.getUserService.deleteUser(any[Long])).thenReturn(Future{SuccessUpdate(1)})
+             when(usersController.getUserService.findOneById(1)).thenReturn(Future{user})
              usersController.deleteUser(externalisedUserId).apply(request)
            }
            Await.result(result, DurationLong(5l) seconds)
@@ -445,7 +443,7 @@ class UsersTest extends Specification with AbstractControllerTest  {
            val encryptedPassword = PasswordCrypt.encrypt("mypassword").get
            val user = User.currentUser(Some(1l), "person@email.com", "Person", true)
            val result: Future[Result] = executeUserOperation { usersController => request =>
-             when(usersController.getUserService.authenticate("person@email.com",encryptedPassword)).thenReturn(SuccessfulLogin(user))
+             when(usersController.getUserService.authenticate("person@email.com",encryptedPassword)).thenReturn(Future{SuccessfulLogin(user)})
              usersController.changeMyPassword("mypassword","pass1234").apply(request)
            }
            Await.result(result, DurationLong(5l) seconds)
@@ -458,7 +456,7 @@ class UsersTest extends Specification with AbstractControllerTest  {
         running(FakeApplication()) {
            val encryptedPassword = PasswordCrypt.encrypt("mypassword").get
            val result: Future[Result] = executeUserOperation { usersController => request =>
-             when(usersController.getUserService.authenticate("person@email.com",encryptedPassword)).thenReturn(InvalidLoginAttempt())
+             when(usersController.getUserService.authenticate("person@email.com",encryptedPassword)).thenReturn(Future{InvalidLoginAttempt()})
              usersController.changeMyPassword("mypassword","pass1234").apply(request)
            }
            Await.result(result, DurationLong(5l) seconds)
@@ -471,7 +469,7 @@ class UsersTest extends Specification with AbstractControllerTest  {
         running(FakeApplication()) {
            val encryptedPassword = PasswordCrypt.encrypt("mypassword").get
            val result: Future[Result] = executeUserOperation { usersController => request =>
-             when(usersController.getUserService.authenticate("person@email.com",encryptedPassword)).thenReturn(AccountLocked())
+             when(usersController.getUserService.authenticate("person@email.com",encryptedPassword)).thenReturn(Future{AccountLocked()})
              usersController.changeMyPassword("mypassword","pass1234").apply(request)
            }
            Await.result(result, DurationLong(5l) seconds)
@@ -504,8 +502,8 @@ class UsersTest extends Specification with AbstractControllerTest  {
            val externalisedUserId = IndirectReferenceMapper.convertInternalIdToExternalised(1)
            val user = User(Some(1),"simon@email.com",Some("password"),"Simon",0,true)
            val result: Future[Result] = executeAdminUserOperation { usersController => request =>
-             when(usersController.getUserService.findOneById(1)).thenReturn(user)
-             when(usersController.getUserService.getRoles(1)).thenReturn(ArraySeq())
+             when(usersController.getUserService.findOneById(1)).thenReturn(Future{user})
+             when(usersController.getUserService.getRoles(1)).thenReturn(Future{ArraySeq()})
              usersController.getUser(externalisedUserId).apply(request)
            }
            Await.result(result, DurationLong(5l) seconds)
@@ -589,7 +587,7 @@ class UsersTest extends Specification with AbstractControllerTest  {
            val newUserRole: JsValue = Json.obj("userId" -> externalisedUserId, "name" -> "foobar", "email" -> "foo@email.com", "roleType" -> "admin")
            val jsonRequest = Json.arr(newUserRole)
            val result: Future[Result] = executeAdminUserJsonOperation(jsonRequest) { usersController => request =>
-             when(usersController.getUserService.addRoleMembers(any[Seq[UserRoleMember]])).thenReturn(UniqueConstraintViolation())
+             when(usersController.getUserService.addRoleMembers(any[Seq[UserRoleMember]])).thenReturn(Future{UniqueConstraintViolation()})
              usersController.addUsersToRole.apply(request)
            }
            Await.result(result, DurationLong(5l) seconds)
@@ -606,7 +604,7 @@ class UsersTest extends Specification with AbstractControllerTest  {
            val newUserRole: JsValue = Json.obj("userId" -> externalisedUserId, "name" -> "foobar", "email" -> "foo@email.com", "roleType" -> "admin")
            val jsonRequest = Json.arr(newUserRole)
            val result: Future[Result] = executeAdminUserJsonOperation(jsonRequest) { usersController => request =>
-             when(usersController.getUserService.addRoleMembers(any[Seq[UserRoleMember]])).thenReturn(SuccessUpdate(1))  
+             when(usersController.getUserService.addRoleMembers(any[Seq[UserRoleMember]])).thenReturn(Future{SuccessUpdate(1)})  
              usersController.addUsersToRole.apply(request)
            }
            Await.result(result, DurationLong(5l) seconds)

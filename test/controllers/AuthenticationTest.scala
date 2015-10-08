@@ -1,24 +1,30 @@
 package controllers
 
-import scala.concurrent.Future
 import scala.concurrent.Await
-import scala.concurrent.duration._
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
+import scala.concurrent.duration.DurationLong
+
 import org.junit.runner.RunWith
 import org.mockito.Mockito.when
 import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
+
+import javax.inject.Inject
+import javax.inject.Singleton
 import play.api.libs.json.Json
 import play.api.libs.json.Json.toJsFieldJsValueWrapper
 import play.api.mvc.Result
 import play.api.test.FakeApplication
 import play.api.test.FakeRequest
-import play.api.test.Helpers._
+import play.api.test.Helpers.contentAsString
+import play.api.test.Helpers.defaultAwaitTimeout
+import play.api.test.Helpers.running
+import services.AccountLocked
+import services.InvalidLoginAttempt
 import services.UserService
 import services.UserSession
-import services.InvalidLoginAttempt
-import services.AccountLocked
-import services.AccountLocked
 import utils.PasswordCrypt
 
 @RunWith(classOf[JUnitRunner])
@@ -106,7 +112,7 @@ class AuthenticationTest extends Specification with Mockito {
 	         val userService = mock[UserService]
 	         val application = new Application(userSession,userService)
            val encryptedPassword = PasswordCrypt.encrypt("mypassword").get
-	         when(userService.authenticate("simon@acme.com",encryptedPassword)).thenReturn(InvalidLoginAttempt())
+	         when(userService.authenticate("simon@acme.com",encryptedPassword)).thenReturn(Future{InvalidLoginAttempt()})
 	         val jsonRequest = Json.obj("email" -> "simon@acme.com","password" -> "mypassword")
 	         val request = FakeRequest().withJsonBody(jsonRequest)
 	         
@@ -126,7 +132,7 @@ class AuthenticationTest extends Specification with Mockito {
              val userService = mock[UserService]
              val application = new Application(userSession,userService)
              val encryptedPassword = PasswordCrypt.encrypt("mypassword").get
-             when(userService.authenticate("simon@acme.com",encryptedPassword)).thenReturn(AccountLocked())
+             when(userService.authenticate("simon@acme.com",encryptedPassword)).thenReturn(Future{AccountLocked()})
              val jsonRequest = Json.obj("email" -> "simon@acme.com","password" -> "mypassword")
              val request = FakeRequest().withJsonBody(jsonRequest)
              

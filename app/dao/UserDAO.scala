@@ -6,13 +6,8 @@ import models.User
 import models.UserRoleMember
 import scala.util.Try
 import slick.driver.PostgresDriver.api._
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Await
-import scala.concurrent.duration.Duration
 import scalaext.OptionExt._
 import play.api.Play
-import play.api.db.slick.DatabaseConfigProvider
-import slick.driver.JdbcProfile
 import scala.concurrent.Future
 import slick.jdbc.GetResult
 
@@ -41,76 +36,66 @@ class ApplicationRoleMembershipTable(tag: Tag) extends Table[ApplicationRoleMemb
 
 object UsersDAO {
   
-    val db = DatabaseConfigProvider.get[JdbcProfile](Play.current).db
     lazy val usersQuery = TableQuery[UsersTable]
     lazy val rolesQuery = TableQuery[ApplicationRoleMembershipTable]
     
-    def allEnabled: List[User] = {
-        val query  = usersQuery.filter(_.enabled === true).sortBy(_.name.asc)
-        Await.result(db.run(query.result), Duration.Inf).toSet[User].toList
+    def allEnabled = {
+        usersQuery.filter(_.enabled === true).sortBy(_.name.asc)
     }
     
-    def allPaged(pageNumber: Int, pageSize: Int): (Seq[User],Int) = {
+    def allPaged(pageNumber: Int, pageSize: Int) = {
        val offset = (pageNumber -1)*pageSize
        val query = usersQuery.sortBy(_.name.asc).drop(offset).take(pageSize)
-       val users = Await.result(db.run(query.result), Duration.Inf).toSet[User].toList
-       val totalCount = Await.result(db.run(usersQuery.length.result),Duration.Inf)
-       (users,totalCount)
+       query.result
     }
     
-    def create(newuser: User):Try[Long] =  {
-        val query = usersQuery returning usersQuery.map(_.id) += newuser
-        Await.result(db.run(query.asTry.transactionally),Duration.Inf)
+    def getTotalUserCount() = {
+       usersQuery.length.result
+    }
+    
+    def create(newuser: User) =  {
+        usersQuery returning usersQuery.map(_.id) += newuser        
     }
 
-    def find(userId: Long): User = { 
-        Await.result(db.run(usersQuery.filter(_.id === userId).result.head),Duration.Inf)
+    def find(userId: Long) = { 
+        usersQuery.filter(_.id === userId).result.head
     }
     
     
-    def findByEmail(email: String): Option[User] = {
+    def findByEmail(email: String) = {
         val q = usersQuery.filter(u => u.email.toLowerCase === email.toLowerCase && u.enabled === true)
-        Await.result(db.run(q.result.headOption),Duration.Inf)
+        q.result.headOption
     }
     
-    def update(updateUser: User):Try[Int] = { 
-        val q = usersQuery.filter(_.id === updateUser.id).map(u => (u.name,u.email,u.enabled)).update((updateUser.name,updateUser.email,updateUser.enabled))
-        Await.result(db.run(q.asTry.transactionally),Duration.Inf)        
+    def update(updateUser: User) = { 
+        usersQuery.filter(_.id === updateUser.id).map(u => (u.name,u.email,u.enabled)).update((updateUser.name,updateUser.email,updateUser.enabled))
     }
 
     def updatefailedLoginAttempt(userId: Long, failedLoginAttempts: Int) = {
-        val q = usersQuery.filter(_.id === userId).map(u => (u.failedLoginAttempt)).update((failedLoginAttempts))
-        Await.result(db.run(q.transactionally),Duration.Inf)
+        usersQuery.filter(_.id === userId).map(u => (u.failedLoginAttempt)).update((failedLoginAttempts))
     }
 
     def enableUser(userId: Long, status: Boolean) = {
-        val q = usersQuery.filter(_.id === userId).map(u => (u.enabled)).update((status))
-        Await.result(db.run(q.transactionally),Duration.Inf)
+        usersQuery.filter(_.id === userId).map(u => (u.enabled)).update((status))
     }
 
     def changeUserPassword(userId: Long, newPasswordEncrypted: String) = {
-        val q = usersQuery.filter(_.id === userId).map(u => (u.password)).update((newPasswordEncrypted))
-        Await.result(db.run(q.transactionally),Duration.Inf)
+        usersQuery.filter(_.id === userId).map(u => (u.password)).update((newPasswordEncrypted))
     }
 
     def delete(id: Long) = {
-        val q = usersQuery.filter(_.id === id).delete
-        Await.result(db.run(q.asTry.transactionally),Duration.Inf)
+        usersQuery.filter(_.id === id).delete
     }
 
     def searchByNameAndEmail(searchString: String) = {
-        val query = usersQuery.filter(u => u.email.toLowerCase like searchString)
-        Await.result(db.run(query.result), Duration.Inf).toSet[User].toList
+        usersQuery.filter(u => u.email.toLowerCase like searchString)        
     }
-
     
     def getRoleMembers(roleType: String) = {
        val innerJoin = for {
          (usr,grp) <- usersQuery join rolesQuery on (_.id === _.userId) if grp.roleType === roleType
        } yield (grp.userId,usr.name,usr.email,grp.roleType)
-       Await.result(db.run(innerJoin.result), Duration.Inf).map {
-         case((userId:Long,userName:String,userEmail:String,roleType:String)) => UserRoleMember(userId,userName,userEmail,roleType)
-       }
+       innerJoin
     }
     
     /**
@@ -132,27 +117,19 @@ object UsersDAO {
        from application_user usr
        left outer join application_role_membership r on usr.id = r.user_id and r.role_type=$roleType
        where r.role_type is null""".as[UserRoleMember]
-       Await.result(db.run(query),Duration.Inf)
+       query
     }
     
     def deleteRoleMember(id: Long, roleType: String) = {
-        val q = rolesQuery.filter(grp => grp.userId === id && grp.roleType === roleType).delete
-        Await.result(db.run(q.asTry.transactionally),Duration.Inf)
+        rolesQuery.filter(grp => grp.userId === id && grp.roleType === roleType).delete        
     }
 
-    def addRoleMembers(newMembers: Seq[UserRoleMember]):Try[Int] = Try {
-        val q = rolesQuery ++= newMembers.map { member => ApplicationRoleMembership(member.userId,member.roleType) }
-        val rowsInserted = Await.result(db.run(q.asTry.transactionally),Duration.Inf).get
-        rowsInserted ifSome { rows =>
-          rows
-        } otherwise {
-          0
-        }       
+    def addRoleMembers(newMembers: Seq[UserRoleMember]) = {
+        rolesQuery ++= newMembers.map { member => ApplicationRoleMembership(member.userId,member.roleType) }              
     }
 
-    def getRoles(userId: Long): Seq[ApplicationRoleMembership] = {
-        val query = rolesQuery.filter(u => u.userId === userId)
-        Await.result(db.run(query.result), Duration.Inf).toSet[ApplicationRoleMembership].toList
+    def getRoles(userId: Long) = {
+        rolesQuery.filter(u => u.userId === userId)        
     }
 
 }
