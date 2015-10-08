@@ -6,7 +6,7 @@ define(['angular', 'moment', 'common'], function (angular,moment) {
 
   var mod = angular.module('user.services', ['myapp.common', 'ngCookies']);
   mod.factory('userSessionContext', ['$q', 'playRoutes', '$cookies', '$log', '$location', '$rootScope',function ($q, playRoutes, $cookies, $log, $location, $rootScope) {
-    var user, token = $cookies['XSRF-TOKEN'], currentRange;
+    var user, token = $cookies.get('XSRF-TOKEN'), currentRange;
 
     /*
 	 * If the token is assigned, check that the token is still valid on the
@@ -23,7 +23,7 @@ define(['angular', 'moment', 'common'], function (angular,moment) {
       .error(function () {
         $log.info('Token no longer valid, please log in.');
         token = undefined;
-        delete $cookies['XSRF-TOKEN'];
+        $cookies.remove('XSRF-TOKEN');
         $location.path('/login');
         return $q.reject("Token invalid");
       });
@@ -46,7 +46,7 @@ define(['angular', 'moment', 'common'], function (angular,moment) {
        },
        logout: function () {
             return playRoutes.controllers.Application.logout().post().then(function () {
-              delete $cookies['XSRF-TOKEN'];
+              $cookies.remove('XSRF-TOKEN');
               token = undefined;
               user = undefined;
               setUserName(undefined);
@@ -215,7 +215,7 @@ define(['angular', 'moment', 'common'], function (angular,moment) {
                   $location.path('/');
               } 
           } else {
-             $location.path('/login');
+              $location.path('/login');
           }
       });
   }; 
