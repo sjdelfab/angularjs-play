@@ -112,7 +112,7 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
   }
 
   private def PasswordNotStringEnoughResult(operation: String, sessionUser: InternalUser): Future[Result] = {
-    Logger.info(s"User: $sessionUser.userEmail. $operation: Password not strong enough")
+    Logger.info(s"User: ${sessionUser.userEmail}. $operation: Password not strong enough")
     val msg = Play.current.configuration.getString(PASSWORD_POLICY_MESSAGE).get
     Future{Ok(Json.obj("status" -> "PASSWORD_NOT_STRONG_ENOUGH", "message" -> msg))}
   }
@@ -121,15 +121,15 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
     userService.createUser(user,encryptedPassword) map { result =>
       result match {
         case SuccessInsert(newUserId) => {
-          Logger.info("User: " + sessionUser.userEmail + ". Create User: " + user.email)
+          Logger.info(s"User: ${sessionUser.userEmail}. Create User: ${user.email}")
           Ok(Json.obj("id" -> IndirectReferenceMapper.convertInternalIdToExternalised(newUserId)))
         }
         case UniqueConstraintViolation() => {
-          Logger.info("User: " + sessionUser.userEmail + ". Create User: Failed to create due to unique constraints violation - " + user.email)
+          Logger.info(s"User: ${sessionUser.userEmail}. Create User: Failed to create due to unique constraints violation - ${user.email}")
           Ok(Json.obj("status" -> "UNIQUE_CONSTRAINTS_VIOLATION"))
         }
         case _ => {
-          Logger.info("User: " + sessionUser.userEmail + ". Create User: Internal Server Error")
+          Logger.info(s"User: ${sessionUser.userEmail}. Create User: Internal Server Error")
           InternalServerError("Failed to update user due to server error")
         }
       }
@@ -159,15 +159,15 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
           user.id ifSome { updatedUserId =>
               userService.updateUser(user) map { result => result match {
                   case SuccessUpdate(rowsUpdated) => {
-                    Logger.info("User: " + sessionUser.userEmail + ". Update User: " + user.email)
+                    Logger.info(s"User: ${sessionUser.userEmail}. Update User: ${user.email}")
                     Ok(Json.obj("status" -> "OK"))
                   }
                   case UniqueConstraintViolation() => {
-                    Logger.info("User: " + sessionUser.userEmail + ". Create User: Failed to create due to unique constraints violation - " + user.email)
+                    Logger.info(s"User: ${sessionUser.userEmail}. Create User: Failed to create due to unique constraints violation - ${user.email}")
                     Ok(Json.obj("status" -> "UNIQUE_CONSTRAINTS_VIOLATION"))
                   }
                   case _ => {
-                    Logger.info("User: " + sessionUser.userEmail + ". Update User: Internal Server Error")
+                    Logger.info(s"User: ${sessionUser.userEmail}. Update User: Internal Server Error")
                     InternalServerError("Failed to update user due to server error")
                   }
                 }
@@ -186,15 +186,15 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
             userService.deleteUser(internalUserId) map { result => 
               result match {
                   case SuccessUpdate(rowsUpdated) => {
-                      Logger.info("User: " + sessionUser.userEmail + ". Delete User: " + user.email)
+                      Logger.info(s"User: ${sessionUser.userEmail}. Delete User: ${user.email}")
                       Ok(Json.obj("status" -> "OK")) 
                   }
                   case ForeignKeyConstraintViolation() => {
-                      Logger.info("User: " + sessionUser.userEmail + ". Delete User: Failed to delete due to foreign key constraints violation - " + user.email)
+                      Logger.info(s"User: ${sessionUser.userEmail}. Delete User: Failed to delete due to foreign key constraints violation - ${user.email}")
                       Ok(Json.obj("status" -> "FK_CONSTRAINTS_VIOLATION"))
                   }
                   case _ => {
-                      Logger.info("User: " + sessionUser.userEmail + ". Delete User: Internal Server Error")
+                      Logger.info(s"User: ${sessionUser.userEmail}. Delete User: Internal Server Error")
                       InternalServerError("Failed to delete user due to server error")
                   }
               }
@@ -218,7 +218,7 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
         user <- userService.findOneById(internalUserId)
         updateResult <- 
           userService.enableUser(internalUserId,status) map { result =>      
-             Logger.info("User: " + sessionUser.userEmail + ". Enable/Disable User: " + user.email)
+             Logger.info(s"User: ${sessionUser.userEmail}. Enable/Disable User: ${user.email}")
              Ok
           }
       } yield updateResult
@@ -234,7 +234,7 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
         user <- userService.findOneById(internalUserId)
         updateResult <- 
            userService.unlockUser(internalUserId) map { result =>
-             Logger.info("User: " + sessionUser.userEmail + ". Unlock User: " + user.email)
+             Logger.info(s"User: ${sessionUser.userEmail}. Unlock User: ${user.email}")
              Ok 
            }        
       } yield updateResult
@@ -252,7 +252,7 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
                user <- userService.findOneById(internalUserId)
                updateResult <- 
                   userService.changeUserPassword(internalUserId,encryptedPassword) map { result =>  
-                     Logger.info("User: " + sessionUser.userEmail + ". Change User Password: " + user.email)
+                     Logger.info(s"User: ${sessionUser.userEmail}. Change User Password: ${user.email}")
                      Ok(Json.obj("status" -> "OK")) 
                   }
                
@@ -327,11 +327,11 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
                     currentUser.mergeEditableChanges(user)
                     userService.updateUser(currentUser) map { updateDbResult => updateDbResult match {
                           case SuccessUpdate(rowsUpdated) => {
-                            Logger.info("User: " + sessionUser.userEmail + ". Updated Profile.")
+                            Logger.info(s"User: ${sessionUser.userEmail}. Updated Profile.")
                             Ok(Json.obj("status" -> "OK"))
                           }
                           case _ => {
-                            Logger.info("User: " + sessionUser.userEmail + ". Update Profile: Internal Server Error")
+                            Logger.info(s"User: ${sessionUser.userEmail}. Update Profile: Internal Server Error")
                             InternalServerError("Failed to update user profile due to server error")
                           }
                        }
@@ -353,7 +353,7 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
                  performChangeOwnPassword(newPassword,user)
             }
             case _ => {
-               Logger.info("User: " + sessionUser.userEmail + ". Change Own Password: Invalid current password")
+               Logger.info(s"User: ${sessionUser.userEmail}. Change Own Password: Invalid current password")
                Ok(Json.obj("status" -> "INVALID_CURRENT_PASSWORD"))
             }
           }
@@ -367,14 +367,14 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
     if (isPasswordStrongEnough(newPassword)) {
       PasswordCrypt.encrypt(newPassword) ifSome { encryptedPassword =>
         userService.changeUserPassword(user.id.get, encryptedPassword)
-        Logger.info("User: " + user.email + ". Change Own Password.")
+        Logger.info(s"User: ${user.email}. Change Own Password.")
         Ok(Json.obj("status" -> "OK"))
       } otherwise {
-        Logger.info("User: " + user.email + ". Change Own Password: Invalid Password")
+        Logger.info(s"User: ${user.email}. Change Own Password: Invalid Password")
         Ok(Json.obj("status" -> "INVALID_PASSWORD"))
       }
     } else {
-      Logger.info("User: " + user.email + ". Change Own Password: Password not strong enough")
+      Logger.info(s"User: ${user.email}. Change Own Password: Password not strong enough")
       val msg = Play.current.configuration.getString(PASSWORD_POLICY_MESSAGE).get
       Ok(Json.obj("status" -> "PASSWORD_NOT_STRONG_ENOUGH", "message" -> msg))
     }
@@ -397,7 +397,7 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
       userService.deleteRoleMember(internalUserId,roleType)
       val userFuture = userService.findOneById(sessionUser.userId)
       userFuture.map { user =>
-          Logger.info("User: " + sessionUser.userEmail + ". Delete Role: " + roleType + " from " + user.email)
+          Logger.info(s"User: ${sessionUser.userEmail}. Delete Role: $roleType from ${user.email}")
           Ok
       }
     } otherwise {
@@ -415,11 +415,11 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
               dbResult match {
                   case SuccessUpdate(rowsUpdated) => Ok(Json.obj("status" -> "OK"))
                   case UniqueConstraintViolation() => {
-                      Logger.info("User: " + sessionUser.userEmail + ". Add Users To Role: Unique constraints violation")
+                      Logger.info(s"User: ${sessionUser.userEmail}. Add Users To Role: Unique constraints violation")
                       Ok(Json.obj("status" -> "UNIQUE_CONSTRAINTS_VIOLATION"))
                   }
                   case _ => {
-                      Logger.info("User: " + sessionUser.userEmail + ". Add Users To Role: Internal Server Error")
+                      Logger.info(s"User: ${sessionUser.userEmail}. Add Users To Role: Internal Server Error")
                       InternalServerError("Failed to add role members due to server error")
                   }
               }
