@@ -19,6 +19,7 @@ import services.AccountLocked
 import services.SuccessfulLogin
 import utils.PasswordCrypt
 import security.InternalUser
+import scala.concurrent.Future
 
 @Singleton
 class Application @Inject() (userSession: UserSession, userService: UserService) extends Controller with Security {
@@ -79,7 +80,7 @@ class Application @Inject() (userSession: UserSession, userService: UserService)
 	    request.body.asJson.map { json =>
 	      json.validate[LoginCredentials].fold(
 		      errors => {
-		        scala.concurrent.Future {
+		        Future {
   		        Logger.info("Invalid JSON request: " + JsError.toJson(errors))
   		        BadRequest("Invalid request")
 		        }
@@ -88,21 +89,23 @@ class Application @Inject() (userSession: UserSession, userService: UserService)
 		        PasswordCrypt.encrypt(credentials.password) ifSome { encryptedPassword =>
 		            performLogin(credentials.email,encryptedPassword)
 		        } otherwise {
-		           scala.concurrent.Future {
-                 Logger.info("Attempting login for user '" + credentials.email + "'. Invalid username/password")
-  		           BadRequest(Json.obj("login_error_status" -> "INVALID_USERNAME_PASSWORD"))
-		           }
+		           LoginErrorStatusResult(credentials.email,"INVALID_USERNAME_PASSWORD")
 		        }
 		      }
 	    )
 	    }.getOrElse {
-	       scala.concurrent.Future {
-	          BadRequest("Expecting Json data")
-	       }
+	       Future { BadRequest("Expecting Json data") }
 	    }
      
   }
 
+  private def LoginErrorStatusResult(email: String, status: String): Future[Result] = {
+     Future {
+         Logger.info(s"Attempting login for user ' $email ': $status")
+  		   BadRequest(Json.obj("login_error_status" -> status))
+		 }
+  }
+  
   private def performLogin(email: String, encryptedPassword: String) = {
     val actions = for {
         loginResult <- userService.authenticate(email, encryptedPassword) 
@@ -118,8 +121,8 @@ class Application @Inject() (userSession: UserSession, userService: UserService)
                     .withNewSession
                 }
               }
-              case InvalidLoginAttempt() => scala.concurrent.Future{BadRequest(Json.obj("login_error_status" -> "INVALID_USERNAME_PASSWORD"))}
-              case AccountLocked() => scala.concurrent.Future{BadRequest(Json.obj("login_error_status" -> "ACCOUNT_LOCKED"))}
+              case InvalidLoginAttempt() => LoginErrorStatusResult(email,"INVALID_USERNAME_PASSWORD")
+              case AccountLocked() => LoginErrorStatusResult(email,"ACCOUNT_LOCKED")
             }
         }  
     } yield result

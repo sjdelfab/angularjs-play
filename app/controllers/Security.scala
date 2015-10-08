@@ -46,7 +46,7 @@ trait Security extends SecurityCookieTokens { self: Controller { def getUserSess
       }
     }
   
-  def ValidUserFutureAction[A](parser: BodyParser[A] = parse.anyContent)(action: String => InternalUser => Request[A] => Future[Result]): Action[A] =
+  def ValidUserAsyncAction[A](parser: BodyParser[A] = parse.anyContent)(action: String => InternalUser => Request[A] => Future[Result]): Action[A] =
     Action.async(parser) { implicit request =>
           request.cookies.get(AUTH_TOKEN_COOKIE_KEY).fold {
               scala.concurrent.Future { Unauthorized(Json.obj("message" -> "Invalid XSRF Token cookie")) }
@@ -84,12 +84,12 @@ trait Security extends SecurityCookieTokens { self: Controller { def getUserSess
     }
   }
   
-  def RestrictFuture[A](parser: BodyParser[A] = parse.anyContent)(roleNames: Array[String])(action: String => InternalUser => Request[A] => Future[Result]): Action[A] = {
-    RestrictionFuture[A](parser)(List(roleNames))(action)
+  def RestrictAsync[A](parser: BodyParser[A] = parse.anyContent)(roleNames: Array[String])(action: String => InternalUser => Request[A] => Future[Result]): Action[A] = {
+    RestrictionAsync[A](parser)(List(roleNames))(action)
   }
   
-  def RestrictionFuture[A](parser: BodyParser[A] = parse.anyContent)(roleGroups: List[Array[String]])(action: String => InternalUser => Request[A] => Future[Result]): Action[A] = {
-    ValidUserFutureAction[A](parser) { token => sessionUser => implicit request =>
+  def RestrictionAsync[A](parser: BodyParser[A] = parse.anyContent)(roleGroups: List[Array[String]])(action: String => InternalUser => Request[A] => Future[Result]): Action[A] = {
+    ValidUserAsyncAction[A](parser) { token => sessionUser => implicit request =>
       if (sessionUser.checkRoles(roleGroups)) {
            action(token)(sessionUser)(request)
       } else {
