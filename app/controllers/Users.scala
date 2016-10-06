@@ -70,13 +70,11 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
   
   /** Retrieves a logged in user if the authentication token is valid.
     *
-    * If the token is invalid, [[HasToken]] does not invoke this function.
-    *
     * @return The user in JSON format.
     */
   def currentLoggedInUser() =  ValidUserAsyncAction(parse.empty) { token => sessionUser => implicit request =>
     userService.findOneById(sessionUser.userId).map { user =>
-       Ok(Json.toJson(user))
+       OkNoCache(Json.toJson(user))
     } .recover {
       case ex: TimeoutException =>
         Logger.error("Problem found in employee delete process")
@@ -108,13 +106,13 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
   
   private def InvalidPasswordResult(operation: String, sessionUser: InternalUser): Future[Result] = {
     Logger.info(s"User: $sessionUser.userEmail . $operation: Invalid Password")
-    Future{Ok(Json.obj("status" -> "INVALID_PASSWORD"))}
+    Future{OkNoCache(Json.obj("status" -> "INVALID_PASSWORD"))}
   }
 
   private def PasswordNotStringEnoughResult(operation: String, sessionUser: InternalUser): Future[Result] = {
     Logger.info(s"User: ${sessionUser.userEmail}. $operation: Password not strong enough")
     val msg = Play.current.configuration.getString(PASSWORD_POLICY_MESSAGE).get
-    Future{Ok(Json.obj("status" -> "PASSWORD_NOT_STRONG_ENOUGH", "message" -> msg))}
+    Future{OkNoCache(Json.obj("status" -> "PASSWORD_NOT_STRONG_ENOUGH", "message" -> msg))}
   }
   
   private def createNewUser(sessionUser: InternalUser, user: User, encryptedPassword: String):Future[Result] = {
@@ -122,11 +120,11 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
       result match {
         case SuccessInsert(newUserId) => {
           Logger.info(s"User: ${sessionUser.userEmail}. Create User: ${user.email}")
-          Ok(Json.obj("id" -> IndirectReferenceMapper.convertInternalIdToExternalised(newUserId)))
+          OkNoCache(Json.obj("id" -> IndirectReferenceMapper.convertInternalIdToExternalised(newUserId)))
         }
         case UniqueConstraintViolation() => {
           Logger.info(s"User: ${sessionUser.userEmail}. Create User: Failed to create due to unique constraints violation - ${user.email}")
-          Ok(Json.obj("status" -> "UNIQUE_CONSTRAINTS_VIOLATION"))
+          OkNoCache(Json.obj("status" -> "UNIQUE_CONSTRAINTS_VIOLATION"))
         }
         case _ => {
           Logger.info(s"User: ${sessionUser.userEmail}. Create User: Internal Server Error")
@@ -160,11 +158,11 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
               userService.updateUser(user) map { result => result match {
                   case SuccessUpdate(rowsUpdated) => {
                     Logger.info(s"User: ${sessionUser.userEmail}. Update User: ${user.email}")
-                    Ok(Json.obj("status" -> "OK"))
+                    OkNoCache(Json.obj("status" -> "OK"))
                   }
                   case UniqueConstraintViolation() => {
                     Logger.info(s"User: ${sessionUser.userEmail}. Create User: Failed to create due to unique constraints violation - ${user.email}")
-                    Ok(Json.obj("status" -> "UNIQUE_CONSTRAINTS_VIOLATION"))
+                    OkNoCache(Json.obj("status" -> "UNIQUE_CONSTRAINTS_VIOLATION"))
                   }
                   case _ => {
                     Logger.info(s"User: ${sessionUser.userEmail}. Update User: Internal Server Error")
@@ -187,11 +185,11 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
               result match {
                   case SuccessUpdate(rowsUpdated) => {
                       Logger.info(s"User: ${sessionUser.userEmail}. Delete User: ${user.email}")
-                      Ok(Json.obj("status" -> "OK")) 
+                      OkNoCache(Json.obj("status" -> "OK")) 
                   }
                   case ForeignKeyConstraintViolation() => {
                       Logger.info(s"User: ${sessionUser.userEmail}. Delete User: Failed to delete due to foreign key constraints violation - ${user.email}")
-                      Ok(Json.obj("status" -> "FK_CONSTRAINTS_VIOLATION"))
+                      OkNoCache(Json.obj("status" -> "FK_CONSTRAINTS_VIOLATION"))
                   }
                   case _ => {
                       Logger.info(s"User: ${sessionUser.userEmail}. Delete User: Internal Server Error")
@@ -208,7 +206,7 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
   
   def searchUser(searchString: String) = ValidUserAsyncAction(parse.empty) { token => sessionUser => implicit request =>
     userService.searchUsers(searchString) map { foundUsers => 
-       Ok(Json.toJson(foundUsers))
+       OkNoCache(Json.toJson(foundUsers))
     }
   }
 
@@ -219,7 +217,7 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
         updateResult <- 
           userService.enableUser(internalUserId,status) map { result =>      
              Logger.info(s"User: ${sessionUser.userEmail}. Enable/Disable User: ${user.email}")
-             Ok
+             OkNoCache
           }
       } yield updateResult
       actions
@@ -235,7 +233,7 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
         updateResult <- 
            userService.unlockUser(internalUserId) map { result =>
              Logger.info(s"User: ${sessionUser.userEmail}. Unlock User: ${user.email}")
-             Ok 
+             OkNoCache 
            }        
       } yield updateResult
       actions
@@ -253,7 +251,7 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
                updateResult <- 
                   userService.changeUserPassword(internalUserId,encryptedPassword) map { result =>  
                      Logger.info(s"User: ${sessionUser.userEmail}. Change User Password: ${user.email}")
-                     Ok(Json.obj("status" -> "OK")) 
+                     OkNoCache(Json.obj("status" -> "OK")) 
                   }
                
              } yield updateResult
@@ -277,7 +275,7 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
         userService.getTotalUserCount() map { total =>
             val numberOfPages: Int = (total / pageSize) + 1
             val data = Json.obj("users" -> Json.toJson(foundUsers), "total" -> total, "numberOfPages" -> numberOfPages, "pageSize" -> pageSize)
-            Ok(data)      
+            OkNoCache(data)      
         }        
       }
     } yield result
@@ -291,7 +289,7 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
         result <- {
           userService.getRoles(internalUserId) map { roles =>
              val toReturn = Json.obj("user" -> Json.toJson(user), "roles" -> Json.toJson(roles))
-             Ok(toReturn)   
+             OkNoCache(toReturn)   
           }
         }
       } yield result
@@ -307,7 +305,7 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
         result <- {
           userService.getRoles(sessionUser.userId) map { roles =>
              val toReturn = Json.obj("user" -> Json.toJson(user), "roles" -> Json.toJson(roles))
-             Ok(toReturn)   
+             OkNoCache(toReturn)   
           }
         }
       } yield result
@@ -328,7 +326,7 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
                     userService.updateUser(currentUser) map { updateDbResult => updateDbResult match {
                           case SuccessUpdate(rowsUpdated) => {
                             Logger.info(s"User: ${sessionUser.userEmail}. Updated Profile.")
-                            Ok(Json.obj("status" -> "OK"))
+                            OkNoCache(Json.obj("status" -> "OK"))
                           }
                           case _ => {
                             Logger.info(s"User: ${sessionUser.userEmail}. Update Profile: Internal Server Error")
@@ -354,7 +352,7 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
             }
             case _ => {
                Logger.info(s"User: ${sessionUser.userEmail}. Change Own Password: Invalid current password")
-               Ok(Json.obj("status" -> "INVALID_CURRENT_PASSWORD"))
+               OkNoCache(Json.obj("status" -> "INVALID_CURRENT_PASSWORD"))
             }
           }
       }
@@ -368,27 +366,27 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
       PasswordCrypt.encrypt(newPassword) ifSome { encryptedPassword =>
         userService.changeUserPassword(user.id.get, encryptedPassword)
         Logger.info(s"User: ${user.email}. Change Own Password.")
-        Ok(Json.obj("status" -> "OK"))
+        OkNoCache(Json.obj("status" -> "OK"))
       } otherwise {
         Logger.info(s"User: ${user.email}. Change Own Password: Invalid Password")
-        Ok(Json.obj("status" -> "INVALID_PASSWORD"))
+        OkNoCache(Json.obj("status" -> "INVALID_PASSWORD"))
       }
     } else {
       Logger.info(s"User: ${user.email}. Change Own Password: Password not strong enough")
       val msg = Play.current.configuration.getString(PASSWORD_POLICY_MESSAGE).get
-      Ok(Json.obj("status" -> "PASSWORD_NOT_STRONG_ENOUGH", "message" -> msg))
+      OkNoCache(Json.obj("status" -> "PASSWORD_NOT_STRONG_ENOUGH", "message" -> msg))
     }
   }
   
   def getRoleMembers(roleType: String) = RestrictAsync(parse.empty)(Array("admin")) { token => sessionUser => implicit request =>
     userService.getRoleMembers(roleType) map { roleMembers =>
-        Ok(Json.toJson(roleMembers))
+        OkNoCache(Json.toJson(roleMembers))
     }
   }
   
   def getRoleNonMembers(roleType: String) = RestrictAsync(parse.empty)(Array("admin")) { token => sessionUser => implicit request =>
     userService.getRoleNonMembers(roleType) map { nonRoleMembers =>
-        Ok(Json.toJson(nonRoleMembers))
+        OkNoCache(Json.toJson(nonRoleMembers))
     }
   }
   
@@ -398,7 +396,7 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
       val userFuture = userService.findOneById(sessionUser.userId)
       userFuture.map { user =>
           Logger.info(s"User: ${sessionUser.userEmail}. Delete Role: $roleType from ${user.email}")
-          Ok
+          OkNoCache
       }
     } otherwise {
        InvalidUserRequest("Delete Role",sessionUser)
@@ -416,7 +414,7 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
                   case SuccessUpdate(rowsUpdated) => Ok(Json.obj("status" -> "OK"))
                   case UniqueConstraintViolation() => {
                       Logger.info(s"User: ${sessionUser.userEmail}. Add Users To Role: Unique constraints violation")
-                      Ok(Json.obj("status" -> "UNIQUE_CONSTRAINTS_VIOLATION"))
+                      OkNoCache(Json.obj("status" -> "UNIQUE_CONSTRAINTS_VIOLATION"))
                   }
                   case _ => {
                       Logger.info(s"User: ${sessionUser.userEmail}. Add Users To Role: Internal Server Error")

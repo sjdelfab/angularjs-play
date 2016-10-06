@@ -1,7 +1,7 @@
 define([ 'angular' ], function(angular) {
     'use strict';
    
-    var MyProfileController = function($scope, $location, $routeParams, blockUI, $modal, 
+    var MyProfileController = function($scope, $location, $routeParams, blockUI, $uibModal, 
                                       userManagement,$translate, $translatePartialLoader) {
 
         $scope.error = {};
@@ -96,7 +96,7 @@ define([ 'angular' ], function(angular) {
         };
         
         $scope.changeMyPassword = function(user) {
-            $modal.open({
+            $uibModal.open({
                 backdrop : 'static',
                 templateUrl : '/assets/javascripts/user/changeOwnPassword.html',
                 controller : 'ChangeOwnPasswordController',
@@ -113,12 +113,12 @@ define([ 'angular' ], function(angular) {
 
     };
 
-    MyProfileController.$inject = ['$scope', '$location', '$routeParams', 'blockUI', '$modal', 
+    MyProfileController.$inject = ['$scope', '$location', '$routeParams', 'blockUI', '$uibModal', 
                                    'userManagement', '$translate', '$translatePartialLoader'];
     
-    var ChangeOwnPasswordController = ['$scope', '$modalInstance', '$modal', 'messageDialog',
+    var ChangeOwnPasswordController = ['$scope', '$uibModalInstance', '$uibModal', 'messageDialog',
                                     '$translate', '$translatePartialLoader', 'userManagement', 'user',
-                                    function($scope, $modalInstance, $modal, messageDialog, 
+                                    function($scope, $uibModalInstance, $uibModal, messageDialog, 
                                              $translate, $translatePartialLoader, userManagement, user) {
 
         var password_do_not_match = "Passwords do not match";
@@ -160,7 +160,7 @@ define([ 'angular' ], function(angular) {
         $scope.passwords.retypePassword = undefined;
 
         $scope.close = function() {
-            $modalInstance.close(undefined);
+            $uibModalInstance.dismiss('close');
         };
 
         var validatePasswords = function() {
@@ -187,12 +187,12 @@ define([ 'angular' ], function(angular) {
                 } else if (response.data.status === 'INVALID_CURRENT_PASSWORD') {
                     showErrorMessage(incorrect_current_password);
                 } else {
-                    $scope.close();
+                    $uibModalInstance.close('ok');
                     var message = 'Successfully changed password';
                     $translate('change_own_password_dialog.successfully_changed_password').then(function (translations) {
                         message = translations['change_own_password_dialog.successfully_changed_password'];
                     });
-                    messageDialog.showMessage($modal,changed_password_title,message);
+                    messageDialog.showMessage($uibModal,changed_password_title,message);
                 }
             })['finally'](function() {
                 $scope.saveInProgress = false;

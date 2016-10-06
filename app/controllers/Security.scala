@@ -56,7 +56,7 @@ trait Security extends SecurityCookieTokens { self: Controller { def getUserSess
               val unencryptedToken = Crypto.decryptAES(token)
               getUserSession().lookup(unencryptedToken) map { sessionUser =>
                 if (xsrfTokenCookie.value.equals(token)) {
-                  action(token)(sessionUser)(request)
+                  action(token)(sessionUser)(request)                    
                 } else {
                   scala.concurrent.Future { Unauthorized(Json.obj("message" -> "Invalid Token")) }
                 }

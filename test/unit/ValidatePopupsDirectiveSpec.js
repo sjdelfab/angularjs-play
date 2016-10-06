@@ -6,7 +6,10 @@ define([ 'angular', 'angularMocks','app','common'],
 
         var $scope, $compile, compileEl;
         beforeEach(function() {
-            module('app');
+            module('app',function($provide) {
+                    $provide.value('playRoutes', mockPlayRoutes);
+                }
+            );
             
             inject(function(_$compile_, $rootScope) {
                 $scope = $rootScope.$new();
@@ -34,7 +37,7 @@ define([ 'angular', 'angularMocks','app','common'],
             return it('throws an exception', function() {
               return expect(function() {
                 return $compile('<div class="form-group"><input type="text" name="firstName" data-validate-popups></input></div>')($scope);
-              }).toThrow("Must have an outer form");
+              }).toThrowError("Must have an outer form");
             });
         });
         
@@ -42,7 +45,7 @@ define([ 'angular', 'angularMocks','app','common'],
             return it('throws an exception', function() {
               return expect(function() {
                 return $compile('<form data-form-validation><div class="form-group"><input type="text" name="firstName" data-validate-popups></input></div></form')($scope);
-              }).toThrow("Outer form must have a name");
+              }).toThrowError("Outer form must have a name");
             });
         });
         
@@ -50,7 +53,7 @@ define([ 'angular', 'angularMocks','app','common'],
             return it('throws an exception', function() {
               return expect(function() {
                 return $compile('<form name="userForm" data-form-validation><div class="form-group"><input type="text" data-validate-popups></input></div></form')($scope);
-              }).toThrow("Element must have a name");
+              }).toThrowError("Element must have a name");
             });
         });
         
@@ -58,7 +61,7 @@ define([ 'angular', 'angularMocks','app','common'],
             return it('throws an exception', function() {
               return expect(function() {
                 return $compile('<form name="userForm"><div class="form-group"><input type="text" name="firstName" data-validate-popups></input></div></form')($scope);
-              }).toThrow("Outer form must have form-validation attribute");
+              }).toThrowError("Outer form must have form-validation attribute");
             });
         });
         
@@ -71,7 +74,7 @@ define([ 'angular', 'angularMocks','app','common'],
               expect(angular.element(firstNameEl(el)).attr('popover-trigger')).toBe('focus');
               $scope.userForm.validationMessages.firstName = 'This is an error';
               $scope.$digest();
-              expect(angular.element(firstNameEl(el)).attr('popover')).toBe('This is an error');
+              expect(angular.element(firstNameEl(el)).attr('uib-popover')).toBe('This is an error');
             });
         });
     });

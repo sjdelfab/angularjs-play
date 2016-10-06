@@ -1,9 +1,7 @@
 # angularjs-play
 
 ## Introduction
-The purpose of this project was to create an application using using AngularJS, RequireJS and the PlayFramework that I can use as a baseline 
-project for any future web applications that I write. There are templates from Typesafe and others [1,2] which I have used as a starting point. 
-However, I wanted to create a project which solved/implemented all the things which I need when developing an application i.e.
+Demo project using AngularJS, RequireJS and the PlayFramework. Uses/solves the following:
 
 * Dependency injection (using Guice)
 * Unit testing of AngularJS controllers/services/directives
@@ -20,9 +18,9 @@ However, I wanted to create a project which solved/implemented all the things wh
 ## Installation and Setup
 
 ### Installation
-1. Install Play 2.3.X: https://www.playframework.com/download
+1. Install Play:  https://www.playframework.com/download
 2. Install NodeJS: https://nodejs.org/
-3. Install ScalaIDE 4.0: http://scala-ide.org/
+3. Install ScalaIDE 4.X: http://scala-ide.org/
 4. Install PostgreSQL (http://www.postgresql.org/) or have access to 9.X database
      
 ### Setup
@@ -74,18 +72,6 @@ npm install
 grunt karma:dist
 ```
 
-When writing tests, I found the following useful:
-
-http://karma-runner.github.io/0.12/index.html 
-http://jasmine.github.io/
-http://quickleft.com/blog/angularjs-unit-testing-for-real-though
-http://andyshora.com/unit-testing-best-practices-angularjs.html
-http://www.tuesdaydeveloper.com/2013/06/angularjs-testing-with-karma-and-jasmine/
-http://stephenjamescode.blogspot.com.au/2014/05/lab-beginners-guide-to-starting-new-web.html
-http://stackoverflow.com/questions/23689671/karma-jasmine-with-angular-requirejs
-http://www.benlesh.com/2013/06/angular-js-unit-testing-services.html
-http://angular-tips.com/blog/2014/06/introduction-to-unit-test-services/
-
 ### Play Controller Testing
 These are located under test/controllers
 
@@ -100,7 +86,7 @@ hasn't been updated to reflect the change. There is a need to at least run the S
 
 But I have found that the data set formats provided by DbUnit are not to my liking. Excel spreadsheet datasets are unwieldy and
 suck when it comes to storing date-time values. The XML format is a bit verbose. So my choice of dataset format has been
-JSON and I have been code based on [3].
+JSON and I have based implementation on [3].
 
 One downside of DbUnit tests is that they are incredibly slow. The reason for the slowness is because it needs to figure out the
 truncate and insert order. The solution has been to include the insert order with the dataset and avoid this lengthly operation.

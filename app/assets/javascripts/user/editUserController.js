@@ -1,7 +1,7 @@
 define([ 'angular' ], function(angular) {
     'use strict';
    
-    var EditUserController = function($scope, $location, $routeParams, blockUI, $modal, 
+    var EditUserController = function($scope, $location, $routeParams, blockUI, $uibModal, 
                                       userManagement,$translate, $translatePartialLoader) {
 
         $scope.error = {};
@@ -160,7 +160,7 @@ define([ 'angular' ], function(angular) {
 
         $scope.addRoles = function() {
             var rolesThisUserNotMemberOf = getRolesNotMemberOf();
-            var modalInstance = $modal.open({
+            var modalInstance = $uibModal.open({
                 backdrop : 'static',
                 templateUrl : '/assets/javascripts/user/addRolesToUserDialog.html',
                 controller : 'AddRolesToUserDialogController',
@@ -204,14 +204,14 @@ define([ 'angular' ], function(angular) {
 
     };
 
-    EditUserController.$inject = [ '$scope', '$location', '$routeParams', 'blockUI', '$modal', 
+    EditUserController.$inject = [ '$scope', '$location', '$routeParams', 'blockUI', '$uibModal', 
                                    'userManagement', '$translate', '$translatePartialLoader'];
 
     // ****** Start Add Roles To User Dialog Controller ******
     
-    var AddRolesToUserDialogController = ['$scope', '$modalInstance', '$modal', 'userManagement', 'messageDialog', 'user', 'rolesNotMemberOf',
+    var AddRolesToUserDialogController = ['$scope', '$uibModalInstance', '$uibModal', 'userManagement', 'messageDialog', 'user', 'rolesNotMemberOf',
                                           '$translate', '$translatePartialLoader', 
-                                          function($scope, $modalInstance, $modal, userManagement, 
+                                          function($scope, $uibModalInstance, $uibModal, userManagement, 
                                            messageDialog, user, rolesNotMemberOf, $translate, $translatePartialLoader) {
 
         $scope.error = {};
@@ -245,7 +245,7 @@ define([ 'angular' ], function(angular) {
         }
                 
         $scope.close = function() {
-            $modalInstance.close(undefined);
+            $uibModalInstance.dismiss('no');
         };
       
         $scope.ok = function() {
@@ -271,7 +271,7 @@ define([ 'angular' ], function(angular) {
                 if (response.data.status === 'UNIQUE_CONSTRAINTS_VIOLATION') {
                     showErrorMessage(add_role_unique_constraints_violation);
                 } else {
-                    $scope.close();
+                    $uibModalInstance.close('ok');
                 }
             })['finally'](function() {
                 $scope.saveInProgress = false;

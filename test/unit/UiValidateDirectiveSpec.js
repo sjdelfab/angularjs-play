@@ -6,7 +6,10 @@ define([ 'angular', 'angularMocks','app','common'],
 
         var $scope, $compile, validatorCompileEl, customValidatorCompileEl;
         beforeEach(function() {
-            module('app');
+            module('app',function($provide) {
+                $provide.value('playRoutes', mockPlayRoutes);
+              }
+            );
             
             inject(function(_$compile_, $rootScope) {
                 $scope = $rootScope.$new();
@@ -19,7 +22,7 @@ define([ 'angular', 'angularMocks','app','common'],
             var el;
             el = $compile('<form name="userForm1" data-form-validation>\
                 <div id="first-name-group1" class="form-group" >\
-                  <input type="text" name="firstName1" ng-model="firstName1" ui-validate="\'$value === lastName1\'" ui-validate-watch="\'lastName1\'" class="form-control" ui-validate-message="This is invalid" data-validate-popups/>\
+                  <input type="text" name="firstName1" ng-model="firstName1" data-ui-validate="\'$value === lastName1\'" ui-validate-watch="\'lastName1\'" class="form-control" data-ui-validate-message="\'This is invalid\'" data-validate-popups/>\
                 </div>\
                 <div id="last-name-group1" class="form-group">\
                   <input type="text" name="lastName1" ng-model="lastName1" class="form-control" data-validate-popups/>\
@@ -33,7 +36,7 @@ define([ 'angular', 'angularMocks','app','common'],
         customValidatorCompileEl = function() {
             var el = $compile('<form name="userForm2" data-form-validation>\
                 <div id="first-name-group2" class="form-group" >\
-                  <input type="text" name="firstName2" ng-model="firstName2" ui-validate="{ customError : \'$value === lastName2\' }" ui-validate-watch=" { customError : \'lastName2\' }" class="form-control" ui-validate-custom-error="Custom invalid" data-validate-popups/>\
+                  <input type="text" name="firstName2" ng-model="firstName2" data-ui-validate="{ customError : \'$value === lastName2\' }" ui-validate-watch=" { customError : \'lastName2\' }" class="form-control" data-ui-validate-message="\'Custom invalid\'" data-validate-popups/>\
                 </div>\
                 <div id="last-name-group2" class="form-group">\
                   <input type="text" name="lastName2" ng-model="lastName2"  class="form-control" data-validate-popups/>\
@@ -63,7 +66,7 @@ define([ 'angular', 'angularMocks','app','common'],
             expect($scope.userForm1.$invalid).toBe(true)
             expect($scope.userForm1.validateForm()).toBe(false);
             $scope.$digest();
-            expect(angular.element(firstName1El(formEl)).attr('popover')).toBe('This is invalid');
+            expect(angular.element(firstName1El(formEl)).attr('uib-popover')).toBe('This is invalid');
             return expectFirstName1FormGroupHasErrorClass(formEl).toBe(true);
         });
         
@@ -77,7 +80,7 @@ define([ 'angular', 'angularMocks','app','common'],
             expect($scope.userForm2.$invalid).toBe(true)
             expect($scope.userForm2.validateForm()).toBe(false);
             $scope.$digest();
-            expect(angular.element(firstName2El(formEl)).attr('popover')).toBe('Custom invalid');
+            expect(angular.element(firstName2El(formEl)).attr('uib-popover')).toBe('Custom invalid');
             return expectFirstName2FormGroupHasErrorClass(formEl).toBe(true);
         });
         

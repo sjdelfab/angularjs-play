@@ -8,20 +8,20 @@ version := "1.0-SNAPSHOT"
 
 lazy val root = (project in file(".")).enablePlugins(PlayScala,SbtWeb)
 
-scalaVersion := "2.11.6"
+scalaVersion := "2.11.8"
 
 libraryDependencies ++= Seq(
   filters,
   cache,
-  "org.webjars" % "requirejs" % "2.1.20",
-  "org.webjars" % "jquery" % "1.11.3",
-  "org.webjars" % "bootstrap" % "3.1.1-2" exclude("org.webjars", "jquery"),
-  "org.webjars" % "angularjs" % "1.4.7" exclude("org.webjars", "jquery"),
-  "org.webjars" % "webjars-play_2.11" % "2.4.0",
-  "org.webjars" % "angular-ui-bootstrap" % "0.13.4" exclude("org.webjars", "angularjs"),
-  "org.webjars" % "momentjs" % "2.10.6",
-  "org.webjars" % "font-awesome" % "4.4.0",
-  "org.webjars" % "angular-ui-select" % "0.12.1",
+  "org.webjars" % "requirejs" % "2.3.2",
+  "org.webjars" % "jquery" % "3.1.1",
+  "org.webjars" % "bootstrap" % "3.3.7" exclude("org.webjars", "jquery"),
+  "org.webjars" % "angularjs" % "1.5.8" exclude("org.webjars", "jquery"),
+  "org.webjars" % "webjars-play_2.11" % "2.4.0-2",
+  "org.webjars" % "angular-ui-bootstrap" % "1.3.3" exclude("org.webjars", "angularjs"),
+  "org.webjars" % "momentjs" % "2.15.0",
+  "org.webjars" % "font-awesome" % "4.6.3",
+  "org.webjars" % "angular-ui-select" % "0.17.1",
   "javax.inject" % "javax.inject" % "1",
   "com.typesafe.slick" %% "slick" % "3.0.3",
   "com.typesafe.play" %% "play-slick" % "1.0.1",
@@ -31,13 +31,13 @@ libraryDependencies ++= Seq(
   "org.webjars" % "angular-translate-interpolation-messageformat" % "0.1.2",
   "org.webjars" % "angular-translate-loader-partial" % "2.7.0",
   "org.webjars" % "angular-translate-loader-url" % "0.1.2-1",
-  "org.mockito" % "mockito-core" % "1.9.5" % "test",
-  "org.scalatest" % "scalatest_2.11" % "2.2.5" % "test",
+  "org.mockito" % "mockito-core" % "1.10.19" % "test",
+  "org.scalatest" % "scalatest_2.11" % "2.2.6" % "test",
   "org.scalatestplus" %% "play" % "1.4.0-M4" % "test",
   "org.dbunit" % "dbunit" % "2.5.0",
-  "org.specs2" % "specs2_2.11" % "3.3.1" % "test",
-  "org.specs2" % "specs2-mock_2.11" % "3.3.1" % "test",
-  "org.specs2" % "specs2-junit_2.11" % "3.3.1" % "test"
+  "org.specs2" % "specs2_2.11" % "3.7" % "test",
+  "org.specs2" % "specs2-mock_2.11" % "3.7" % "test",
+  "org.specs2" % "specs2-junit_2.11" % "3.7" % "test"
 )
 
 scalacOptions in ThisBuild ++= Seq(
@@ -53,11 +53,30 @@ scalacOptions in ThisBuild ++= Seq(
   "-Ywarn-dead-code"
 )
 
-pipelineStages := Seq(rjs, digest, gzip)
+lazy val setVersionTask = TaskKey[Unit]("setRevisionRJS", "Set revision number in main.js")
+
+setVersionTask := {
+    val v = System.currentTimeMillis().toString()
+	var mainFile = scala.io.Source.fromFile("app/assets/javascripts/main.js").mkString
+	mainFile = mainFile.replaceAll("@Revision@",v)
+    Some(new java.io.PrintWriter("app/assets/javascripts/main.js")).foreach{p => p.write(mainFile); p.close}
+}
+
+packageBin in Universal <<= (packageBin in Universal).dependsOn(setVersionTask)
+
+pipelineStages := Seq(rjs, digest, gzip, filter)
+
+includeFilter in filter := "*.js.map" || "*.js"
+
+excludeFilter in filter := "*main.js" || "*require.js"
 
 // RequireJS with sbt-rjs (https://github.com/sbt/sbt-rjs#sbt-rjs)
-
 RjsKeys.paths += ("jsRoutes" -> ("/jsroutes" -> "empty:"))
+
+// http://stackoverflow.com/questions/31368029/paths-fallback-not-supported-in-optimizer-reloaded
+// Disable CDN See https://github.com/sbt/sbt-rjs/issues/45
+//RjsKeys.webJarCdns := Map.empty
+RjsKeys.webJarCdns := Map("org.webjars" -> "/webjars")
 
 UglifyKeys.mangle := false
 

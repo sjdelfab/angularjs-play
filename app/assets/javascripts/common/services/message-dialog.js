@@ -7,9 +7,9 @@ define(['angular'], function(angular) {
   var mod = angular.module('common.message-dialog', []);
   mod.service('messageDialog', function() {
       return {
-          showMessage: function($modal,title,message) {
+          showMessage: function($uibModal,title,message) {
               var dialogTemplate = '<div class="modal-header"><h4>{{title}}</h4></div><div class="modal-body">{{msg}}</div><div class="modal-footer"><button ng-click="close()" class="btn">Close</button></div>';
-              $modal.open({
+              $uibModal.open({
                  template: dialogTemplate,
                  backdrop: 'static',
                  controller: 'MessageDialogController',           
@@ -19,7 +19,7 @@ define(['angular'], function(angular) {
                    }
                });
           },
-          showConfirmationMessage: function($modal,confirmationCallback,title,message) {
+          showConfirmationMessage: function($uibModal,confirmationCallback,title,message) {
               var dialogTemplate = '<div class="modal-header"><h4>{{title}}</h4></div><div class="modal-body">{{msg}}</div><div class="modal-footer"><button ng-click="yes()" class="btn">Yes</button><button ng-click="no()" class="btn">No</button></div>';
               var modalInstance = $modal.open({
                  template: dialogTemplate,
@@ -35,33 +35,33 @@ define(['angular'], function(angular) {
       };
   });
   
-  function MessageDialogController($scope, $modalInstance, title, msg) {
+  function MessageDialogController($scope, $uibModalInstance, title, msg) {
 
       $scope.msg = msg;
       $scope.title = title;
       
       $scope.close = function () {
-          $modalInstance.dismiss('ok');
+          $uibModalInstance.dismiss('ok');
       };
       
   }
   
-  function ConfirmationMessageDialogController($scope, $modalInstance, title, msg) {
+  function ConfirmationMessageDialogController($scope, $uibModalInstance, title, msg) {
 
       $scope.msg = msg;
       $scope.title = title;
       
       $scope.no = function () {
-          $modalInstance.dismiss('no');
+          $uibModalInstance.dismiss('no');
       };
       
       $scope.yes = function () {
-          $modalInstance.close('yes');
+          $uibModalInstance.close('yes');
       };
       
   }
   
-  mod.controller('MessageDialogController', ['$scope', '$modalInstance', 'title', 'msg',MessageDialogController]);
-  mod.controller('ConfirmationMessageDialogController', ['$scope', '$modalInstance', 'title', 'msg',ConfirmationMessageDialogController]);
+  mod.controller('MessageDialogController', ['$scope', '$uibModalInstance', 'title', 'msg',MessageDialogController]);
+  mod.controller('ConfirmationMessageDialogController', ['$scope', '$uibModalInstance', 'title', 'msg',ConfirmationMessageDialogController]);
   
 });

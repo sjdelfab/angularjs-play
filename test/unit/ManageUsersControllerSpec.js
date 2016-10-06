@@ -7,7 +7,10 @@ define([ 'angular', 'angularMocks','app','user','common','angular-cookies', 'ang
         var createManageUsersController, $scope, $controller, $location, userManagement, $routeParams, blockUI, $modal, messageDialog;
         
         beforeEach(function() {
-            module('app');
+            module('app',function($provide) {
+                $provide.value('playRoutes', mockPlayRoutes);
+               }
+            );
             
             inject(function($rootScope, $injector, userManagement, $q) {
                 $scope = $rootScope.$new();
@@ -25,7 +28,7 @@ define([ 'angular', 'angularMocks','app','user','common','angular-cookies', 'ang
                     confirmationCallback();
                 }
                 
-                spyOn(userManagement,"getUsers").andCallFake(function(errorCallBack) {
+                spyOn(userManagement,"getUsers").and.callFake(function(errorCallBack) {
                     var deferred = $q.defer();
                     var data = new Array(); 
                     var user = {};
@@ -54,7 +57,7 @@ define([ 'angular', 'angularMocks','app','user','common','angular-cookies', 'ang
         
             beforeEach(function() {
                 inject(function($rootScope, $injector, userManagement, $q) {
-                    spyOn(userManagement,"deleteUser").andCallFake(function(userId,errorCallBack) {
+                    spyOn(userManagement,"deleteUser").and.callFake(function(userId,errorCallBack) {
                         var deferred = $q.defer();
                         var response = {};
                         response.data = {};

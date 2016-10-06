@@ -2,24 +2,27 @@ define([ 'angular', 'angularMocks','app','user','common','angular-cookies', 'ang
          'ui-bootstrap','angular-translate','angular-translate-loader-partial','angular-translate-loader-url'], 
 		function(angular, mocks) {
 	'use strict';
-
+	
 	describe("Login Controller Test", function() {
 
 		var createLoginController, $scope, $controller, $location, userSessionContext, loginErrorStatus = 'Server error';
 		beforeEach(function() {
-            module('app');
+		    module('app',function($provide) {
+                $provide.value('playRoutes', mockPlayRoutes);
+               }
+            );
 			
 			inject(function($rootScope, $injector, userSessionContext, $q) {
 				$scope = $rootScope.$new();
 				$controller = $injector.get('$controller');
 				$location = $injector.get('$location');
 				
-				spyOn(userSessionContext,"loginUser").andCallFake(function(credentials,errorCallBack) {
-					var deferred = $q.defer();
-					deferred.resolve('OK');
-					errorCallBack(loginErrorStatus)
-					return deferred.promise;
-				});
+				spyOn(userSessionContext,"loginUser").and.callFake(function(credentials,errorCallBack) {
+                    var deferred = $q.defer();
+                    deferred.resolve('OK');
+                    errorCallBack(loginErrorStatus)
+                    return deferred.promise;
+                });
 				
 				createLoginController = function() { return $controller('LoginController', {
 					  '$scope' : $scope,
@@ -39,6 +42,7 @@ define([ 'angular', 'angularMocks','app','user','common','angular-cookies', 'ang
 
 		it('Server error', function() {
 			var controller = createLoginController();
+			
 			var credentials = {};
 			credentials.email = 'test@email.com';
 			credentials.password = 'password';

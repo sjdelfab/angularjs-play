@@ -6,7 +6,10 @@ define([ 'angular', 'angularMocks','app','user','common','angular-cookies', 'ang
 
         var createEditUserController, $scope, $controller, $location, userManagement, $routeParams, blockUI;
         beforeEach(function() {
-            module('app');
+            module('app',function($provide) {
+                $provide.value('playRoutes', mockPlayRoutes);
+               }
+            );
             
             inject(function($rootScope, $injector, userManagement, $q) {
                 $scope = $rootScope.$new();
@@ -31,34 +34,36 @@ define([ 'angular', 'angularMocks','app','user','common','angular-cookies', 'ang
             
         });
         
+        var updateUserDeferred, getUserDeferred;
+        
         describe("Update User", function() {
         
             beforeEach(function() {
                 inject(function($rootScope, $injector, userManagement, $q) {
-                    spyOn(userManagement,"updateUser").andCallFake(function(user,errorCallBack) {
-                        var deferred = $q.defer();
-                        var response = {};
-                        response.data = {};
-                        response.data.status = 'UNIQUE_CONSTRAINTS_VIOLATION';
-                        deferred.resolve(response);
-                        return deferred.promise;
-                    });
-                    spyOn(userManagement,"getUser").andCallFake(function(externalisedUserId,errorCallBack) {
-                        var deferred = $q.defer();
-                        var data = {}; 
-                        var user = {};
-                        user.name = 'Simon';
-                        user.email = 'simon@email.com';
-                        data.user = user;
-                        data.groups = {};
-                        deferred.resolve(data);
-                        return deferred.promise;
-                    });
+                    updateUserDeferred = $q.defer();
+                    getUserDeferred = $q.defer();
+
+                    spyOn(userManagement,"updateUser").and.returnValue(updateUserDeferred.promise);
+                    spyOn(userManagement,"getUser").and.returnValue(getUserDeferred.promise);
                 });
             });
             
             it('UNIQUE_CONSTRAINTS_VIOLATION', function() {
                 var controller = createEditUserController();
+                
+                var response = {};
+                response.data = {};
+                response.data.status = 'UNIQUE_CONSTRAINTS_VIOLATION';
+                updateUserDeferred.resolve(response);
+                
+                var data = {}; 
+                var user = {};
+                user.name = 'Simon';
+                user.email = 'simon@email.com';
+                data.user = user;
+                data.groups = {};
+                
+                getUserDeferred.resolve(data);
                 
                 $scope.save();
                 $scope.$apply();
@@ -73,11 +78,9 @@ define([ 'angular', 'angularMocks','app','user','common','angular-cookies', 'ang
             
             function setupCreateUser(response) {
                 return function($rootScope, $injector, userManagement, $q) {
-                    spyOn(userManagement,"createUser").andCallFake(function(user,errorCallBack) {
-                        var deferred = $q.defer();
-                        deferred.resolve(response);
-                        return deferred.promise;
-                    });                    
+                    var createUserDeferred = $q.defer();
+                    createUserDeferred.resolve(response);
+                    spyOn(userManagement,"createUser").and.returnValue(createUserDeferred.promise);                    
                 }
             }
             

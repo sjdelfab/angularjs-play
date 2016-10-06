@@ -14,7 +14,7 @@ define([ 'angular' ], function(angular) {
 	
 	UserRolesController.$inject = ['$scope','$translate','$translatePartialLoader'];
 		
-	var EditUserRoleController = function($scope, $location, $routeParams, $modal, blockUI, 
+	var EditUserRoleController = function($scope, $location, $routeParams, $uibModal, blockUI, 
 	                                      userManagement, $translate, $translatePartialLoader) { 
 	    
 	    $scope.error = {};
@@ -123,7 +123,11 @@ define([ 'angular' ], function(angular) {
         
         $scope.addUsers = function() {
             getUsersNotInRole().then(function(usersNotInRole) {
-                var modalInstance = $modal.open({
+                // need to add role for each user
+                angular.forEach(usersNotInRole,function(value) {
+                   value.roleType = roleType; 
+                });
+                var modalInstance = $uibModal.open({
                     backdrop : 'static',
                     templateUrl : '/assets/javascripts/user/addUsersToRoleDialog.html',
                     controller : 'AddUsersToRoleDialogController',
@@ -150,13 +154,13 @@ define([ 'angular' ], function(angular) {
 	    
 	};
 	
-    EditUserRoleController.$inject = [ '$scope', '$location', '$routeParams', '$modal', 'blockUI', 
+    EditUserRoleController.$inject = [ '$scope', '$location', '$routeParams', '$uibModal', 'blockUI', 
                                        'userManagement','$translate', '$translatePartialLoader'];
 	
     // ****** Start Add Group Users Controller ******
     
-    var AddUsersToRoleDialogController = ['$scope', '$modalInstance', '$modal', 'userManagement', 'messageDialog', 'roleType', 
-                                          'roleName', 'usersNotInRole', '$translate', '$translatePartialLoader', function($scope, $modalInstance, $modal, userManagement, 
+    var AddUsersToRoleDialogController = ['$scope', '$uibModalInstance', '$uibModal', 'userManagement', 'messageDialog', 'roleType', 
+                                          'roleName', 'usersNotInRole', '$translate', '$translatePartialLoader', function($scope, $uibModalInstance, $uibModal, userManagement, 
                                            messageDialog, roleType, roleName, usersNotInRole, $translate, $translatePartialLoader) {
 
         // For testing, set to defaults
@@ -192,7 +196,7 @@ define([ 'angular' ], function(angular) {
         $scope.roleUsers.selectedUsers = {};
 
         $scope.close = function() {
-            $modalInstance.close(undefined);
+            $uibModalInstance.dismiss('close');
         };
       
         $scope.ok = function() {
@@ -209,7 +213,7 @@ define([ 'angular' ], function(angular) {
                 if (response.data.status === 'UNIQUE_CONSTRAINTS_VIOLATION') {
                     showErrorMessage(add_user_unique_constraints_violation);
                 } else {
-                    $scope.close();
+                    $uibModalInstance.close('ok');
                 }
             })['finally'](function() {
                 $scope.saveInProgress = false;

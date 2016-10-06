@@ -6,20 +6,25 @@ define([ 'angular', 'angularMocks','app','user','common','angular-cookies', 'ang
 
     describe("Add Users to Role Controller Test", function() {
 
-        var createAddRolesController, $scope, $controller, userManagement, messageDialog, $modalInstance, $modal;
+        
+        
+        var createAddRolesController, $scope, $controller, userManagement, messageDialog, $uibModalInstance, $uibModal;
         beforeEach(function() {
-            module('app');
+            module('app',function($provide) {
+                $provide.value('playRoutes', mockPlayRoutes);
+               }
+            );
             
             inject(function($rootScope, $injector, userManagement) {
                 $scope = $rootScope.$new();
                 $controller = $injector.get('$controller');
-                $modalInstance = {};
-                $modal = {};
+                $uibModalInstance = {};
+                $uibModal = {};
                 
                 createAddRolesController = function() { return $controller('AddUsersToRoleDialogController', {
                       '$scope' : $scope,
-                      '$modalInstance' : $modalInstance,                       
-                      '$modal': $modal,
+                      '$uibModalInstance' : $uibModalInstance,                       
+                      '$uibModal': $uibModal,
                       'userManagement' : userManagement,
                       'messageDialog': messageDialog,
                       'roleType': 'admin',
@@ -31,23 +36,25 @@ define([ 'angular', 'angularMocks','app','user','common','angular-cookies', 'ang
             
         });
         
+        var addRoleMembersDeferred;
+        
         describe("Unique constraints violation", function() {
         
             beforeEach(function() {
                 inject(function($rootScope, $injector, userManagement, $q) {
-                    spyOn(userManagement,"addRoleMembers").andCallFake(function(selectedUsers,errorCallBack) {
-                        var deferred = $q.defer();
-                        var response = {};
-                        response.data = {};
-                        response.data.status = 'UNIQUE_CONSTRAINTS_VIOLATION';
-                        deferred.resolve(response);
-                        return deferred.promise;
-                    });
+                    addRoleMembersDeferred = $q.defer();
+                    spyOn(userManagement,"addRoleMembers").and.returnValue(addRoleMembersDeferred.promise);
                 });
             });
             
             it('UNIQUE_CONSTRAINTS_VIOLATION', function() {
                 var controller = createAddRolesController();
+                
+                var response = {};
+                response.data = {};
+                response.data.status = 'UNIQUE_CONSTRAINTS_VIOLATION';
+                
+                addRoleMembersDeferred.resolve(response);
                 
                 $scope.ok();
                 $scope.$apply();

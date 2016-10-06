@@ -6,7 +6,10 @@ define([ 'angular', 'angularMocks','app','common'],
 
         var $scope, $compile, compileEl, compileElUsingDots, compileInvalidEl;
         beforeEach(function() {
-            module('app');
+            module('app',function($provide) {
+                    $provide.value('playRoutes', mockPlayRoutes);
+                }
+            );
             
             inject(function(_$compile_, $rootScope) {
                 $scope = $rootScope.$new();
@@ -24,13 +27,13 @@ define([ 'angular', 'angularMocks','app','common'],
                 <div id="last-name-group" class="form-group">\
                   <input type="text" name="lastName" ng-model="lastName" ng-minlength="3" class="form-control" data-validate-popups required/>\
                 </div>\
-            	<div id="email-group" class="form-group">\
+                <div id="email-group" class="form-group">\
                     <input type="email" name="email" ng-model="email" class="form-control" data-validate-popups/>\
                 </div>\
-            	<div id="id-group" class="form-group">\
+                <div id="id-group" class="form-group">\
                     <input type="text" name="id" ng-model="id" class="form-control" ng-pattern="/^\d+$/" data-invalid-pattern-message="Must only be numbers" data-validate-popups/>\
                 </div>\
-            	</form>')($scope);
+                </form>')($scope);
             angular.element(document.body).append(el);
             $scope.$digest();
             return el;
@@ -51,10 +54,10 @@ define([ 'angular', 'angularMocks','app','common'],
         compileInvalidEl = function() {
             var el;
             el = $compile('<form name="userForm" data-form-validation>\
-            	<div id="id-group" class="form-group">\
+                <div id="id-group" class="form-group">\
                     <input type="text" name="id" ng-model="id" class="form-control" ng-pattern="/^\d+$/" data-validate-popups/>\
                 </div>\
-            	</form>')($scope);
+                </form>')($scope);
             angular.element(document.body).append(el);
             $scope.$digest();
             return el;
@@ -68,64 +71,64 @@ define([ 'angular', 'angularMocks','app','common'],
 
                 return expect(function() {
                    expect($scope.userForm.validateForm()).toBe(false);
-                }).toThrow("Must specify an invalid pattern message");
+                }).toThrowError("Must specify an invalid pattern message");
             });
         });
         
         describe('Invalid', function() {
-	        it('Minimum length is invalid', function() {
-	           var el;
-	           el = compileEl();
-	           $scope.userForm.firstName.$setViewValue('to');
-	           expect($scope.userForm.validateForm()).toBe(false);
-	           $scope.$digest();
-	           expect(angular.element(firstNameEl(el)).attr('popover')).toBe('Minimum length is 3 characters');
-	           return expectFirstNameFormGroupHasErrorClass(el).toBe(true);
-	        });
-	        
-	        it('Maximum length is invalid', function() {
-	            var el;
-	            el = compileEl();
-	            $scope.userForm.firstName.$setViewValue('12345678901');
-	            expect($scope.userForm.validateForm()).toBe(false);
-	            $scope.$digest();
-	            expect(angular.element(firstNameEl(el)).attr('popover')).toBe('Maximum length is 10 characters');
-	            return expectFirstNameFormGroupHasErrorClass(el).toBe(true);
-	        });
-	        
-	        it('Required is invalid', function() {
-	            var el;
-	            el = compileEl();
-	            $scope.userForm.firstName.$setViewValue('Simon');
-	            expect($scope.userForm.validateForm()).toBe(false);
-	            $scope.$digest();
-	            expect(angular.element(lastNameEl(el)).attr('popover')).toBe('This is a required field');
-	            return expectLastNameFormGroupHasErrorClass(el).toBe(true);
-	        });
-	        
-	        it('Email is invalid', function() {
-	            var el;
-	            el = compileEl();
-	            $scope.userForm.firstName.$setViewValue('Simon');
-	            $scope.userForm.lastName.$setViewValue('Del');
-	            $scope.userForm.email.$setViewValue('simon@');
-	            expect($scope.userForm.validateForm()).toBe(false);
-	            $scope.$digest();
-	            expect(angular.element(emailEl(el)).attr('popover')).toBe('Invalid email address');
-	            return expectEmailFormGroupHasErrorClass(el).toBe(true);
-	        });
-	        
-	        it('Pattern is invalid', function() {
-	            var el;
-	            el = compileEl();
-	            $scope.userForm.firstName.$setViewValue('Simon');
-	            $scope.userForm.lastName.$setViewValue('Del');
-	            $scope.userForm.id.$setViewValue('foo');
-	            expect($scope.userForm.validateForm()).toBe(false);
-	            $scope.$digest();
-	            expect(angular.element(idEl(el)).attr('popover')).toBe('Must only be numbers');
-	            return expectIdFormGroupHasErrorClass(el).toBe(true);
-	        });
+            it('Minimum length is invalid', function() {
+               var el;
+               el = compileEl();
+               $scope.userForm.firstName.$setViewValue('to');
+               expect($scope.userForm.validateForm()).toBe(false);
+               $scope.$digest();
+               expect(angular.element(firstNameEl(el)).attr('uib-popover')).toBe('Minimum length is 3 characters');
+               return expectFirstNameFormGroupHasErrorClass(el).toBe(true);
+            });
+            
+            it('Maximum length is invalid', function() {
+                var el;
+                el = compileEl();
+                $scope.userForm.firstName.$setViewValue('12345678901');
+                expect($scope.userForm.validateForm()).toBe(false);
+                $scope.$digest();
+                expect(angular.element(firstNameEl(el)).attr('uib-popover')).toBe('Maximum length is 10 characters');
+                return expectFirstNameFormGroupHasErrorClass(el).toBe(true);
+            });
+            
+            it('Required is invalid', function() {
+                var el;
+                el = compileEl();
+                $scope.userForm.firstName.$setViewValue('Simon');
+                expect($scope.userForm.validateForm()).toBe(false);
+                $scope.$digest();
+                expect(angular.element(lastNameEl(el)).attr('uib-popover')).toBe('This is a required field');
+                return expectLastNameFormGroupHasErrorClass(el).toBe(true);
+            });
+            
+            it('Email is invalid', function() {
+                var el;
+                el = compileEl();
+                $scope.userForm.firstName.$setViewValue('Simon');
+                $scope.userForm.lastName.$setViewValue('Del');
+                $scope.userForm.email.$setViewValue('simon@');
+                expect($scope.userForm.validateForm()).toBe(false);
+                $scope.$digest();
+                expect(angular.element(emailEl(el)).attr('uib-popover')).toBe('Invalid email address');
+                return expectEmailFormGroupHasErrorClass(el).toBe(true);
+            });
+            
+            it('Pattern is invalid', function() {
+                var el;
+                el = compileEl();
+                $scope.userForm.firstName.$setViewValue('Simon');
+                $scope.userForm.lastName.$setViewValue('Del');
+                $scope.userForm.id.$setViewValue('foo');
+                expect($scope.userForm.validateForm()).toBe(false);
+                $scope.$digest();
+                expect(angular.element(idEl(el)).attr('uib-popover')).toBe('Must only be numbers');
+                return expectIdFormGroupHasErrorClass(el).toBe(true);
+            });
         });
         
         describe('Invalid using dot notation', function() {
@@ -139,7 +142,7 @@ define([ 'angular', 'angularMocks','app','common'],
                $scope.users.userForm.firstName.$setViewValue('to');
                expect($scope.users.userForm.validateForm()).toBe(false);
                $scope.$digest();
-               expect(angular.element(firstNameEl(el)).attr('popover')).toBe('Minimum length is 3 characters');
+               expect(angular.element(firstNameEl(el)).attr('uib-popover')).toBe('Minimum length is 3 characters');
                return expectFirstNameFormGroupHasErrorClass(el).toBe(true);
             });
         });

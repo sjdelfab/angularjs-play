@@ -2,7 +2,7 @@ define([ 'angular' ], function(angular) {
     'use strict';
    
     var UsersController = function($scope, $location, $routeParams, blockUI, userManagement, 
-                                   $modal, messageDialog, $translate, $translatePartialLoader) {
+                                   $uibModal, messageDialog, $translate, $translatePartialLoader) {
 
         // defaults
         var loading_error_message = "Error loading users";
@@ -84,7 +84,7 @@ define([ 'angular' ], function(angular) {
         };
 
         $scope.changePassword = function(user) {
-            $modal.open({
+            $uibModal.open({
                 backdrop : 'static',
                 templateUrl : '/assets/javascripts/user/changePassword.html',
                 controller : 'ChangePasswordController',
@@ -122,7 +122,7 @@ define([ 'angular' ], function(angular) {
                 message = translations['manage_users.delete_user_confirmation_message'];
             });
             
-            messageDialog.showConfirmationMessage($modal,confirmationCallback,title,message);
+            messageDialog.showConfirmationMessage($uibModal,confirmationCallback,title,message);
         };
 
         $scope.disableUser = function(user) {
@@ -156,13 +156,13 @@ define([ 'angular' ], function(angular) {
         loadUsers($routeParams.page);
     };
     
-    UsersController.$inject = [ '$scope', '$location', '$routeParams', 'blockUI', 'userManagement', '$modal', 
+    UsersController.$inject = [ '$scope', '$location', '$routeParams', 'blockUI', 'userManagement', '$uibModal', 
                                 'messageDialog', '$translate', '$translatePartialLoader'];
 
     
-    var ChangePasswordController = ['$scope', '$modalInstance', '$modal', 'messageDialog',
+    var ChangePasswordController = ['$scope', '$uibModalInstance', '$uibModal', 'messageDialog',
                                     '$translate', '$translatePartialLoader', 'userManagement', 'user',
-                                    function($scope, $modalInstance, $modal, messageDialog, 
+                                    function($scope, $uibModalInstance, $uibModal, messageDialog, 
                                              $translate, $translatePartialLoader, userManagement, user) {
 
         var password_do_not_match = "Passwords do not match";
@@ -200,7 +200,7 @@ define([ 'angular' ], function(angular) {
         $scope.passwords.retypePassword = undefined;
 
         $scope.close = function() {
-            $modalInstance.close(undefined);
+            $uibModalInstance.close(undefined);
         };
 
         var validatePasswords = function() {
@@ -225,12 +225,12 @@ define([ 'angular' ], function(angular) {
                 } else if (response.data.status === 'PASSWORD_NOT_STRONG_ENOUGH') {
                     showErrorMessage(response.data.message);
                 } else {
-                    $scope.close();
+                    $uibModalInstance.close('ok');
                     var message = 'Successfully changed password for ' + user.name;
                     $translate('change_password_dialog.successfully_changed_password', { userName: user.name }).then(function (translations) {
                         message = translations['change_password_dialog.successfully_changed_password'];
                     });
-                    messageDialog.showMessage($modal,changed_password_title,message);
+                    messageDialog.showMessage($uibModal,changed_password_title,message);
                 }
             })['finally'](function() {
                 $scope.saveInProgress = false;

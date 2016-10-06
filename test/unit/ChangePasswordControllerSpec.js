@@ -4,22 +4,27 @@ define([ 'angular', 'angularMocks','app','user','common','angular-cookies', 'ang
 
     describe("Change password Controller Test", function() {
 
-        var createChangePasswordController, $scope, $controller, userManagement, messageDialog, $modalInstance, $modal, user;
+        
+        
+        var createChangePasswordController, $scope, $controller, userManagement, messageDialog, $uibModalInstance, $uibModal, user;
         beforeEach(function() {
-            module('app');
+            module('app',function($provide) {
+                $provide.value('playRoutes', mockPlayRoutes);
+               }
+            );
             
             inject(function($rootScope, $injector, userManagement) {
                 $scope = $rootScope.$new();
                 $controller = $injector.get('$controller');
-                $modalInstance = {};
-                $modal = {};
+                $uibModalInstance = {};
+                $uibModal = {};
                 user = {};
                 user.id = '1234';
                 
                 createChangePasswordController = function() { return $controller('ChangePasswordController', {
                       '$scope' : $scope,
-                      '$modalInstance' : $modalInstance,                       
-                      '$modal': $modal,
+                      '$uibModalInstance' : $uibModalInstance,                       
+                      '$uibModal': $uibModal,
                       'messageDialog': messageDialog,
                       'user': user
                     });
@@ -28,23 +33,24 @@ define([ 'angular', 'angularMocks','app','user','common','angular-cookies', 'ang
             
         });
         
+        var changeMyPasswordDeferred;
+        
         describe("Invalid Password Error", function() {
         
             beforeEach(function() {
                 inject(function($rootScope, $injector, userManagement, $q) {
-                    spyOn(userManagement,"changeUserPassword").andCallFake(function(userId,password,errorCallBack) {
-                        var deferred = $q.defer();
-                        var response = {};
-                        response.data = {};
-                        response.data.status = 'INVALID_PASSWORD';
-                        deferred.resolve(response);
-                        return deferred.promise;
-                    });
+                    changeMyPasswordDeferred = $q.defer();
+                    spyOn(userManagement,"changeUserPassword").and.returnValue(changeMyPasswordDeferred.promise);
                 });
             });
             
             it('INVALID_PASSWORD', function() {
                 var controller = createChangePasswordController();
+                
+                var response = {};
+                response.data = {};
+                response.data.status = 'INVALID_PASSWORD';
+                changeMyPasswordDeferred.resolve(response);
                 
                 $scope.ok();
                 $scope.$apply();
@@ -52,38 +58,20 @@ define([ 'angular', 'angularMocks','app','user','common','angular-cookies', 'ang
                 expect($scope.error.message).toBe('Only ASCII characters allowed');
             });
         
-        });
-
-
-        describe("Password Not Strong Enough", function() {
-            
-            beforeEach(function() {
-                inject(function($rootScope, $injector, userManagement, $q) {
-                    spyOn(userManagement,"changeUserPassword").andCallFake(function(userId,invalidPassword,errorCallBack) {
-                        var deferred = $q.defer();
-                        var response = {};
-                        response.data = {};
-                        response.data.status = 'PASSWORD_NOT_STRONG_ENOUGH';
-                        response.data.message = 'Password not strong enough';
-                        deferred.resolve(response);
-                        return deferred.promise;
-                    });
-                });
-            });
-            
             it('PASSWORD_NOT_STRONG_ENOUGH', function() {
                 var controller = createChangePasswordController();
+                
+                var response = {};
+                response.data = {};
+                response.data.status = 'PASSWORD_NOT_STRONG_ENOUGH';
+                response.data.message = 'Password not strong enough';
+                changeMyPasswordDeferred.resolve(response);
                 
                 $scope.ok();
                 $scope.$apply();
                 expect($scope.error.displayErrorMessage).toBe(true);
                 expect($scope.error.message).toBe('Password not strong enough');
             });
-        
-        });
-        
-        
-        describe("Validation", function() {
             
             it('Passwords do not match', function() {
                 var controller = createChangePasswordController();
@@ -95,7 +83,9 @@ define([ 'angular', 'angularMocks','app','user','common','angular-cookies', 'ang
                 expect($scope.error.displayErrorMessage).toBe(true);
                 expect($scope.error.message).toBe('Passwords do not match');
             });
-        
+            
         });
+
+
     });
 });
