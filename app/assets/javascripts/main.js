@@ -47,7 +47,8 @@
         moment: {
             noGlobal: true
         }
-    }
+    },
+    urlArgs: "build=@Revision@"
   });
 
   requirejs.onError = function (err) {
