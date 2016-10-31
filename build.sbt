@@ -10,6 +10,8 @@ lazy val root = (project in file(".")).enablePlugins(PlayScala,SbtWeb)
 
 scalaVersion := "2.11.8"
 
+EclipseKeys.withSource := true
+
 libraryDependencies ++= Seq(
   filters,
   cache,
@@ -23,13 +25,13 @@ libraryDependencies ++= Seq(
   "org.webjars" % "font-awesome" % "4.6.3",
   "org.webjars" % "angular-ui-select" % "0.17.1",
   "javax.inject" % "javax.inject" % "1",
-  "com.typesafe.slick" %% "slick" % "3.0.3",
-  "com.typesafe.play" %% "play-slick" % "1.0.1",
+  "com.typesafe.slick" %% "slick" % "3.1.1",
+  "com.typesafe.play" %% "play-slick" % "2.0.2",
   "org.postgresql" % "postgresql" % "9.3-1102-jdbc4",
   "edu.vt.middleware" % "vt-password" % "3.1.2",
-  "org.webjars" % "angular-translate" % "2.7.2",
+  "org.webjars" % "angular-translate" % "2.11.0",
   "org.webjars" % "angular-translate-interpolation-messageformat" % "0.1.2",
-  "org.webjars" % "angular-translate-loader-partial" % "2.7.0",
+  "org.webjars" % "angular-translate-loader-partial" % "2.8.1",
   "org.webjars" % "angular-translate-loader-url" % "0.1.2-1",
   "org.mockito" % "mockito-core" % "1.10.19" % "test",
   "org.scalatest" % "scalatest_2.11" % "2.2.6" % "test",
@@ -37,7 +39,8 @@ libraryDependencies ++= Seq(
   "org.dbunit" % "dbunit" % "2.5.0",
   "org.specs2" % "specs2_2.11" % "3.7" % "test",
   "org.specs2" % "specs2-mock_2.11" % "3.7" % "test",
-  "org.specs2" % "specs2-junit_2.11" % "3.7" % "test"
+  "org.specs2" % "specs2-junit_2.11" % "3.7" % "test",
+  "com.typesafe.play" % "play-specs2_2.11" % "2.5.9" % "test"
 )
 
 scalacOptions in ThisBuild ++= Seq(
@@ -90,7 +93,12 @@ unmanagedResourceDirectories in Test <+= baseDirectory ( _ /"target/web/public/t
 
 resolvers += Resolver.sonatypeRepo("snapshots") 
 
-resolvers += "scalaz-bintray" at "http://dl.bintray.com/scalaz/releases"
+resolvers ++= Seq(
+	"Scalaz Bintray Repo" at "https://dl.bintray.com/scalaz/releases",
+	"Atlassian Releases" at "https://maven.atlassian.com/public/",
+    "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots/",
+    Resolver.jcenterRepo
+)
 
 // Play provides two styles of routers, one expects its actions to be injected, the
 // other, legacy style, accesses its actions statically.

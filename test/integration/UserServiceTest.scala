@@ -19,17 +19,15 @@ import services.InvalidLoginAttempt
 import services.SuccessfulLogin
 import services.UniqueConstraintViolation
 import services.UserServiceDatabase
+import play.api.inject.guice.GuiceApplicationBuilder
 
 
 class UserServiceTest extends PlaySpec with AbstractIntegrationTest with BeforeAndAfter with OneAppPerSuite with BeforeAndAfterAll {
 
-  implicit override lazy val app: FakeApplication =
-    FakeApplication(
-      additionalConfiguration = Map("slick.dbs.default.db.url" -> "jdbc:postgresql://localhost:5432/myapp_test?stringtype=unspecified",
-                                    controllers.MAX_FAILED_LOGIN_ATTEMPTS -> 3)                                    
-    )
-  
-  var hasInitialisedDatabase = false
+  implicit override lazy val app = new GuiceApplicationBuilder()
+                       .configure("slick.dbs.default.db.url" -> "jdbc:postgresql://localhost:5432/myapp_test?stringtype=unspecified",
+                                  controllers.MAX_FAILED_LOGIN_ATTEMPTS -> 3).build
+   var hasInitialisedDatabase = false
    
   before {
      if (!hasInitialisedDatabase) {
@@ -39,7 +37,7 @@ class UserServiceTest extends PlaySpec with AbstractIntegrationTest with BeforeA
   }
   
   override def afterAll() {
-    Await.result(app.stop(),Duration.Inf)
+    val stopFuture = Await.result(app.stop(),Duration.Inf)
   }
   
   val userService = app.injector.instanceOf(classOf[UserServiceDatabase])

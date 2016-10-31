@@ -1,19 +1,29 @@
 package e2e
 
 import scala.collection.mutable.ArraySeq
+import scala.concurrent.Await
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
+import scala.concurrent.duration.Duration
+
 import org.mockito.Matchers.anyString
 import org.mockito.Mockito.when
+import org.openqa.selenium.WebDriver
+import org.openqa.selenium.chrome.ChromeDriver
+import org.openqa.selenium.chrome.ChromeOptions
+import org.scalatest.BeforeAndAfterAll
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.tags.ChromeBrowser
-import org.scalatestplus.play.ChromeFactory
+import org.scalatestplus.play.BrowserFactory
+import org.scalatestplus.play.BrowserFactory.UnavailableDriver
 import org.scalatestplus.play.OneBrowserPerSuite
 import org.scalatestplus.play.OneServerPerSuite
 import org.scalatestplus.play.PlaySpec
+
 import controllers.SecurityCookieTokens
 import models.ApplicationRoleMembership
 import models.User
-import play.api.GlobalSettings
-import play.api.test.FakeApplication
+import play.api.test._
 import scalaext.OptionExt.extendOption
 import security.InternalUser
 import services.InvalidLoginAttempt
@@ -21,39 +31,41 @@ import services.SuccessfulLogin
 import services.UserService
 import services.UserSession
 import utils.PasswordCrypt
-import org.scalatest.BeforeAndAfterAll
-import scala.concurrent.duration.Duration
-import scala.concurrent.Await
-import scala.concurrent.Future
-import scala.concurrent.ExecutionContext.Implicits.global
+import play.api.inject.guice.GuiceApplicationBuilder
+import play.api.inject.bind
+
 
 @ChromeBrowser
-class UsersManagementSpec extends PlaySpec with OneServerPerSuite with OneBrowserPerSuite with ChromeFactory  with SecurityCookieTokens with MockitoSugar with BeforeAndAfterAll {
+class UsersManagementSpec extends PlaySpec with OneServerPerSuite with OneBrowserPerSuite with DevChromeFactory with SecurityCookieTokens with MockitoSugar with BeforeAndAfterAll {
   
-  // Override app if you need a FakeApplication with other than non-default parameters.
-  implicit override lazy val app: FakeApplication =
-    FakeApplication(
-      additionalConfiguration = Map("dbplugin" -> "disabled", controllers.PASSWORD_POLICY_MESSAGE -> "Password not strong enough"),
-      withGlobal = Some(new GlobalSettings() {
-        val userService = mock[UserService]
-        val user = User(Some(1),"simon@email.com",Some("password"),"Simon",0,true)
-        val users = (ArraySeq(user),1)
-        when(userService.getUsers(1,50)).thenReturn(Future{users._1})        
-        when(userService.findOneById(1)).thenReturn(Future{user})
-        val allRoles: Seq[ApplicationRoleMembership] = List(ApplicationRoleMembership(1l,"admin"),ApplicationRoleMembership(1l,"resource_manager"))
-        when(userService.getRoles(1l)).thenReturn(Future{allRoles})
-        val encryptedPassword = PasswordCrypt.encrypt("password").get
-        
-        when(userService.authenticate("simon@email.com",encryptedPassword)).thenReturn(Future{SuccessfulLogin(user)})
-        when(userService.authenticate("wrong@email.com",encryptedPassword)).thenReturn(Future{InvalidLoginAttempt()})
-        
-        val userSession = createAdminUserSession();
-              
-      })
-    )
+  val userService = mock[UserService]
   
-  override def afterAll() {
-    Await.result(app.stop(),Duration.Inf)
+  val user = User(Some(1),"simon@email.com",Some("password"),"Simon",0,true)
+  val users = (ArraySeq(user),1)
+  when(userService.getUsers(1,50)).thenReturn(Future{users._1})        
+  when(userService.findOneById(1)).thenReturn(Future{user})
+  when(userService.getTotalUserCount()).thenReturn(Future{1})
+  val allRoles: Seq[ApplicationRoleMembership] = List(ApplicationRoleMembership(1l,"admin"),ApplicationRoleMembership(1l,"resource_manager"))
+  when(userService.getRoles(1l)).thenReturn(Future{allRoles})
+  val encryptedPassword = PasswordCrypt.encrypt("password").get
+        
+  when(userService.authenticate("simon@email.com",encryptedPassword)).thenReturn(Future{SuccessfulLogin(user)})
+  when(userService.authenticate("wrong@email.com",encryptedPassword)).thenReturn(Future{InvalidLoginAttempt()})
+  
+  val userSession = mock[UserSession]
+  val internalUser = new InternalUser("person@email.com",1l,Some(allRoles))
+  when(userSession.lookup(anyString())).thenReturn(Some(internalUser))
+  
+  import controllers.`package`.PASSWORD_POLICY_MESSAGE
+  
+  implicit override lazy val app = new GuiceApplicationBuilder()
+                       .configure(PASSWORD_POLICY_MESSAGE -> "Password not strong enough")
+                       .overrides(bind(classOf[UserService]).toInstance(userService))
+                       .overrides(bind(classOf[UserSession]).toInstance(userSession))
+                       .build
+  
+  override def afterAll() = {
+    val stopFuture = Await.result(app.stop(),Duration.Inf)
   }  
     
   def createAdminUserSession() = {
@@ -177,7 +189,7 @@ class UsersManagementSpec extends PlaySpec with OneServerPerSuite with OneBrowse
         pwdField("retypePassword").value = "password2"
         click on saveUserButton.get
         var passwordField = pwdField("password")
-        passwordField.attribute("popover") ifSome { popoverAttributeValue =>
+        passwordField.attribute("uib-popover") ifSome { popoverAttributeValue =>
           popoverAttributeValue mustBe "Passwords do not match"
         } otherwise {
           fail("Must have popover attribute")
@@ -199,4 +211,17 @@ class UsersManagementSpec extends PlaySpec with OneServerPerSuite with OneBrowse
       }
   }
 
+}
+
+trait DevChromeFactory extends BrowserFactory {
+
+  def createWebDriver(): WebDriver =
+    try {
+      val options = new ChromeOptions()
+      options.addArguments("--disable-extensions")
+      new ChromeDriver(options)
+    }
+    catch {
+      case ex: Throwable => UnavailableDriver(Some(ex), "Can't Create ChromeDriver")
+    }
 }

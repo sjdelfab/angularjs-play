@@ -1,7 +1,12 @@
 package controllers
 
+import java.util.concurrent.TimeoutException
+
 import scala.collection.JavaConversions.bufferAsJavaList
 import scala.collection.mutable.ArrayBuffer
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
+
 import edu.vt.middleware.password.AlphabeticalSequenceRule
 import edu.vt.middleware.password.CharacterCharacteristicsRule
 import edu.vt.middleware.password.DigitCharacterRule
@@ -18,15 +23,13 @@ import edu.vt.middleware.password.Rule
 import edu.vt.middleware.password.UppercaseCharacterRule
 import javax.inject.Inject
 import javax.inject.Singleton
+import models.ApplicationRoleMembership
 import models.User
-import models.User.UserToJson
 import models.UserRoleMember
+import play.api.Configuration
 import play.api.Logger
-import play.api.Play
-import play.api.libs.functional.syntax.functionalCanBuildApplicative
 import play.api.libs.functional.syntax.toApplicativeOps
 import play.api.libs.functional.syntax.toFunctionalBuilderOps
-import play.api.libs.json.JsError
 import play.api.libs.json.Json
 import play.api.libs.json.Json.toJsFieldJsValueWrapper
 import play.api.libs.json.Reads.BooleanReads
@@ -37,11 +40,16 @@ import play.api.libs.json.Reads.functorReads
 import play.api.libs.json.Reads.maxLength
 import play.api.libs.json.Reads.minLength
 import play.api.libs.json.Reads.traversableReads
+import play.api.libs.json.Writes
 import play.api.libs.json.__
+import play.api.mvc.Action
+import play.api.mvc.BodyParser
 import play.api.mvc.Controller
+import play.api.mvc.Request
 import play.api.mvc.Result
 import scalaext.OptionExt.extendOption
 import security.InternalUser
+import services.ForeignKeyConstraintViolation
 import services.SuccessInsert
 import services.SuccessUpdate
 import services.SuccessfulLogin
@@ -49,24 +57,21 @@ import services.UniqueConstraintViolation
 import services.UserService
 import services.UserSession
 import utils.PasswordCrypt
-import scala.concurrent.ExecutionContext.Implicits.global
-import services.ForeignKeyConstraintViolation
-import java.util.concurrent.TimeoutException
-import play.api.mvc.Action
-import play.api.mvc.Request
-import play.api.mvc.BodyParser
-import scala.concurrent.Future
+import play.api.libs.json.Reads
 
 @Singleton
-class Users @Inject() (userSession: UserSession, userService: UserService) extends Controller with Security with BaseController {
+class Users @Inject() (userSession: UserSession, 
+                       userService: UserService, 
+                       configuration: Configuration,
+                       indirectReferenceMapper: IndirectReferenceMapper) extends Controller with Security with BaseController {
   
-  def getUserSession(): UserSession = {
-    userSession
-  }
+  def getUserSession(): UserSession = userSession
   
-  def getUserService(): UserService = {
-    userService
-  }
+  def getUserService(): UserService = userService
+  
+  def getConfiguration(): Configuration = configuration
+  
+  def getIndirectReferenceMapper(): IndirectReferenceMapper = indirectReferenceMapper
   
   /** Retrieves a logged in user if the authentication token is valid.
     *
@@ -81,7 +86,7 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
         InternalServerError(ex.getMessage)
      }
   }
-
+  
   def createUser() = RestrictAsync(parse.json)(Array("admin")) { token => sessionUser => implicit request =>
     request.body.validate[User].fold(
         errors => {
@@ -111,7 +116,7 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
 
   private def PasswordNotStringEnoughResult(operation: String, sessionUser: InternalUser): Future[Result] = {
     Logger.info(s"User: ${sessionUser.userEmail}. $operation: Password not strong enough")
-    val msg = Play.current.configuration.getString(PASSWORD_POLICY_MESSAGE).get
+    val msg = configuration.getString(PASSWORD_POLICY_MESSAGE).get
     Future{OkNoCache(Json.obj("status" -> "PASSWORD_NOT_STRONG_ENOUGH", "message" -> msg))}
   }
   
@@ -120,7 +125,7 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
       result match {
         case SuccessInsert(newUserId) => {
           Logger.info(s"User: ${sessionUser.userEmail}. Create User: ${user.email}")
-          OkNoCache(Json.obj("id" -> IndirectReferenceMapper.convertInternalIdToExternalised(newUserId)))
+          OkNoCache(Json.obj("id" -> indirectReferenceMapper.convertInternalIdToExternalised(newUserId)))
         }
         case UniqueConstraintViolation() => {
           Logger.info(s"User: ${sessionUser.userEmail}. Create User: Failed to create due to unique constraints violation - ${user.email}")
@@ -144,7 +149,7 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
       if (id == "new") {
         User.newUser(email, name, enabled, password)
       } else {
-        User.currentUser(IndirectReferenceMapper.getExternalisedId(id), email, name, enabled)
+        User.currentUser(indirectReferenceMapper.getExternalisedId(id), email, name, enabled)
       }
     })
 
@@ -177,7 +182,7 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
   }
 
   def deleteUser(externalisedUserId: String) = RestrictAsync(parse.empty)(Array("admin")) { token => sessionUser => implicit request =>
-    IndirectReferenceMapper.getExternalisedId(externalisedUserId) ifSome { internalUserId =>
+    indirectReferenceMapper.getExternalisedId(externalisedUserId) ifSome { internalUserId =>
       val actions = for {
         user <- userService.findOneById(internalUserId)
         updateResult <- 
@@ -211,7 +216,7 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
   }
 
   def enableUser(externalisedUserId: String, status: Boolean) = RestrictAsync(parse.empty)(Array("admin")) { token => sessionUser => implicit request =>
-    IndirectReferenceMapper.getExternalisedId(externalisedUserId) ifSome { internalUserId=>
+    indirectReferenceMapper.getExternalisedId(externalisedUserId) ifSome { internalUserId=>
       val actions = for {
         user <- userService.findOneById(internalUserId)
         updateResult <- 
@@ -227,7 +232,7 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
   }
   
   def unlockUser(externalisedUserId: String) = RestrictAsync(parse.empty)(Array("admin")) { token => sessionUser => implicit request =>
-    IndirectReferenceMapper.getExternalisedId(externalisedUserId) ifSome { internalUserId=>
+    indirectReferenceMapper.getExternalisedId(externalisedUserId) ifSome { internalUserId=>
       val actions = for {
         user <- userService.findOneById(internalUserId)
         updateResult <- 
@@ -243,7 +248,7 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
   }
   
   def changeUserPassword(externalisedUserId: String, newPassword: String) = RestrictAsync(parse.empty)(Array("admin")) { token => sessionUser => implicit request =>
-    IndirectReferenceMapper.getExternalisedId(externalisedUserId) ifSome { internalUserId=>
+    indirectReferenceMapper.getExternalisedId(externalisedUserId) ifSome { internalUserId=>
       if (isPasswordStrongEnough(newPassword)) {
          PasswordCrypt.encrypt(newPassword) ifSome { encryptedPassword => 
              val actions = for {
@@ -268,7 +273,7 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
   }
   
   def getUsers(page: Int) = RestrictAsync(parse.empty)(Array("admin")) { token => sessionUser => implicit request =>
-    val pageSize = Play.current.configuration.getInt(PAGE_SIZE).getOrElse(50)
+    val pageSize = configuration.getInt(PAGE_SIZE).getOrElse(50)
     val actions = for {
       foundUsers <- userService.getUsers(page,pageSize)
       result <- {
@@ -282,8 +287,10 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
     actions    
   }
   
+  implicit val appGroupMembershipToJson: Writes[ApplicationRoleMembership] = ApplicationRoleMembership.createJsonWrite(id => indirectReferenceMapper.convertInternalIdToExternalised(id))
+  
   def getUser(externalisedUserId: String) = RestrictAsync(parse.empty)(Array("admin")) { token => sessionUser => implicit request =>
-    IndirectReferenceMapper.getExternalisedId(externalisedUserId) ifSome { internalUserId=>
+    indirectReferenceMapper.getExternalisedId(externalisedUserId) ifSome { internalUserId=>
       val actions = for {
         user <- userService.findOneById(internalUserId)
         result <- {
@@ -373,10 +380,12 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
       }
     } else {
       Logger.info(s"User: ${user.email}. Change Own Password: Password not strong enough")
-      val msg = Play.current.configuration.getString(PASSWORD_POLICY_MESSAGE).get
+      val msg = configuration.getString(PASSWORD_POLICY_MESSAGE).get
       OkNoCache(Json.obj("status" -> "PASSWORD_NOT_STRONG_ENOUGH", "message" -> msg))
     }
   }
+  
+  implicit val userRoleMemberToJson: Writes[UserRoleMember] = UserRoleMember.createJsonWrite(id => indirectReferenceMapper.convertInternalIdToExternalised(id))
   
   def getRoleMembers(roleType: String) = RestrictAsync(parse.empty)(Array("admin")) { token => sessionUser => implicit request =>
     userService.getRoleMembers(roleType) map { roleMembers =>
@@ -391,7 +400,7 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
   }
   
   def deleteRoleMember(externalisedUserId: String, roleType: String) = RestrictAsync(parse.empty)(Array("admin")) { token => sessionUser => implicit request =>
-    IndirectReferenceMapper.getExternalisedId(externalisedUserId) ifSome { internalUserId=>
+    indirectReferenceMapper.getExternalisedId(externalisedUserId) ifSome { internalUserId=>
       userService.deleteRoleMember(internalUserId,roleType)
       val userFuture = userService.findOneById(sessionUser.userId)
       userFuture.map { user =>
@@ -402,6 +411,8 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
        InvalidUserRequest("Delete Role",sessionUser)
     }
   }
+  
+  implicit val jsonToUserRoleMember: Reads[UserRoleMember] = UserRoleMember.createJsonRead(indirectReferenceMapper)
   
   def addUsersToRole = RestrictAsync(parse.json)(Array("admin")) { token => sessionUser => implicit request =>
       request.body.validate[Seq[UserRoleMember]].fold(
@@ -427,24 +438,24 @@ class Users @Inject() (userSession: UserSession, userService: UserService) exten
   }
   
   private def isPasswordStrongEnough(newPassword: String): Boolean = {
-      val minPasswordLength = Play.current.configuration.getInt(PASSWORD_MINIMUM_PASSWORD_LENGTH).getOrElse(8);
+      val minPasswordLength = configuration.getInt(PASSWORD_MINIMUM_PASSWORD_LENGTH).getOrElse(8);
       val lengthRule = new LengthRule(minPasswordLength, 30);
       // control allowed characters
       val charRule = new CharacterCharacteristicsRule();
       var rules = 0;
-      if (Play.current.configuration.getBoolean(PASSWORD_MUST_HAVE_1_DIGIT).getOrElse(true)) {
+      if (configuration.getBoolean(PASSWORD_MUST_HAVE_1_DIGIT).getOrElse(true)) {
          charRule.getRules().add(new DigitCharacterRule(1));
          rules += 1;
       }
-      if (Play.current.configuration.getBoolean(PASSWORD_MUST_HAVE_1_NON_ALPHA).getOrElse(true)) {
+      if (configuration.getBoolean(PASSWORD_MUST_HAVE_1_NON_ALPHA).getOrElse(true)) {
          charRule.getRules().add(new NonAlphanumericCharacterRule(1));
          rules += 1;
       }
-      if (Play.current.configuration.getBoolean(PASSWORD_MUST_HAVE_1_UPPER_CASE).getOrElse(true)) {
+      if (configuration.getBoolean(PASSWORD_MUST_HAVE_1_UPPER_CASE).getOrElse(true)) {
          charRule.getRules().add(new UppercaseCharacterRule(1));
          rules += 1;
       }
-      if (Play.current.configuration.getBoolean(PASSWORD_MUST_HAVE_1_LOWER_CASE).getOrElse(true)) {
+      if (configuration.getBoolean(PASSWORD_MUST_HAVE_1_LOWER_CASE).getOrElse(true)) {
          charRule.getRules().add(new LowercaseCharacterRule(1));
          rules += 1;
       }

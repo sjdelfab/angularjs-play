@@ -4,6 +4,7 @@ import javax.inject.Singleton
 import play.api.cache._
 import security.InternalUser
 import models.ApplicationRoleMembership
+import javax.inject.Inject
 
 trait UserSession {
 
@@ -16,20 +17,18 @@ trait UserSession {
 }
 
 @Singleton
-class PlayCacheUserSession extends UserSession {
-  
-  implicit val app: play.api.Application = play.api.Play.current
+class PlayCacheUserSession @Inject() (cache: CacheApi) extends UserSession {
   
   override def register(token: String, user: InternalUser) {
-     Cache.set(token, user)
+     cache.set(token, user)
   }
   
   override def deregister(token: String) {
-	 Cache.remove(token)
+	 cache.remove(token)
   }
   
   override def lookup(token: String): Option[InternalUser] = {
-     Cache.getAs[InternalUser](token)
+     cache.get[InternalUser](token)
   }
 }
 

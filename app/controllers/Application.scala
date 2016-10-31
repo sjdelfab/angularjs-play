@@ -9,7 +9,6 @@ import play.api.libs.json._
 import play.api.libs.json.Reads._
 import play.api.libs.functional.syntax._
 import play.api.cache._
-import play.api.libs.Crypto
 import scalaext.OptionExt._
 import services.UserSession
 import services.UserService
@@ -22,11 +21,19 @@ import security.InternalUser
 import scala.concurrent.Future
 
 @Singleton
-class Application @Inject() (userSession: UserSession, userService: UserService) extends Controller with Security {
+class Application @Inject() (userSession: UserSession, 
+                             userService: UserService, 
+                             configuration: Configuration,
+                             cached: Cached,
+                             indirectReferenceMapper: IndirectReferenceMapper) extends Controller with Security with BaseController {
 
-  def getUserSession(): UserSession = {
-    userSession
-  }
+  def getUserSession(): UserSession = userSession
+  
+  def getUserService(): UserService = userService
+  
+  def getConfiguration(): Configuration = configuration
+  
+  def getIndirectReferenceMapper(): IndirectReferenceMapper = indirectReferenceMapper 
   
   def index = Action {
     Ok(views.html.index())
@@ -37,7 +44,6 @@ class Application @Inject() (userSession: UserSession, userService: UserService)
    * http://stackoverflow.com/questions/12012703/less-verbose-way-of-generating-play-2s-javascript-router
    * TODO If you have controllers in multiple packages, you need to add each package here.
    */
-
   val routeCache = {
     val jsRoutesClass = classOf[routes.javascript]
     val controllers = jsRoutesClass.getFields.map(_.get(null))
@@ -53,7 +59,7 @@ class Application @Inject() (userSession: UserSession, userService: UserService)
    * Uses browser caching; set duration (in seconds) according to your release cycle.
    * @param varName The name of the global variable, defaults to `jsRoutes`
    */
-  def jsRoutes(varName: String = "jsRoutes") = Cached(_ => "jsRoutes", duration = 86400) {
+  def jsRoutes(varName: String = "jsRoutes") = cached(_ => "jsRoutes", duration = 86400) {
     Action { implicit request =>
       Ok(play.api.routing.JavaScriptReverseRouter(varName)(routeCache: _*)).as(JAVASCRIPT)
     }
@@ -105,7 +111,7 @@ class Application @Inject() (userSession: UserSession, userService: UserService)
   		   BadRequest(Json.obj("login_error_status" -> status))
 		 }
   }
-  
+    
   private def performLogin(email: String, encryptedPassword: String) = {
     val actions = for {
         loginResult <- userService.authenticate(email, encryptedPassword) 
@@ -113,7 +119,7 @@ class Application @Inject() (userSession: UserSession, userService: UserService)
             loginResult match {
               case SuccessfulLogin(user) => {
                 val token = UUID.randomUUID.toString
-                val encryptedToken = Crypto.encryptAES(token)
+                val encryptedToken = encryptAES(token)
                 userService.getRoles(user.id.get) map { userRoles => 
                   userSession.register(token, new InternalUser(user.email,user.id.get,Some(userRoles)))
                   Ok(Json.obj("token" -> encryptedToken, "user" -> Json.toJson(user)))

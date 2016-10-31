@@ -5,20 +5,18 @@ import play.api.mvc._
 import play.api.libs.json._
 import play.api.cache._
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
-import play.api.libs.Crypto
 import services.UserSession
 import scala.concurrent.Future
 import security.InternalUser
-
 
 /**
  * Security actions that should be used by all controllers that need to protect their actions.
  * Can be composed to fine-tune access control.
  */
-trait Security extends SecurityCookieTokens { self: Controller { def getUserSession(): UserSession } =>
-
-  implicit val app: play.api.Application = play.api.Play.current
-  
+trait Security extends SecurityCookieTokens with security.Crypto { self: Controller { 
+                                                      def getUserSession(): UserSession
+                                                      def getConfiguration(): Configuration                                                      
+                                             }  =>  
   /**
     * Checks that the token is:
     * - present in the cookie header of the request,
@@ -33,7 +31,7 @@ trait Security extends SecurityCookieTokens { self: Controller { def getUserSess
           } { xsrfTokenCookie =>
             val maybeToken = request.headers.get(AUTH_TOKEN_HEADER).orElse(request.getQueryString(AUTH_TOKEN_URL_KEY))
             maybeToken flatMap { token =>
-              val unencryptedToken = Crypto.decryptAES(token)
+              val unencryptedToken = decryptAES(token)
               getUserSession().lookup(unencryptedToken) map { sessionUser =>
                 if (xsrfTokenCookie.value.equals(token)) {
                   action(token)(sessionUser)(request)
@@ -53,7 +51,7 @@ trait Security extends SecurityCookieTokens { self: Controller { def getUserSess
           } { xsrfTokenCookie =>
             val maybeToken = request.headers.get(AUTH_TOKEN_HEADER).orElse(request.getQueryString(AUTH_TOKEN_URL_KEY))
             maybeToken flatMap { token =>
-              val unencryptedToken = Crypto.decryptAES(token)
+              val unencryptedToken = decryptAES(token)
               getUserSession().lookup(unencryptedToken) map { sessionUser =>
                 if (xsrfTokenCookie.value.equals(token)) {
                   action(token)(sessionUser)(request)                    
@@ -100,6 +98,17 @@ trait Security extends SecurityCookieTokens { self: Controller { def getUserSess
     }
   }
   
+  private def getConfig(key: String) = getConfiguration().getString(key)
+  
+  def transformation: String = getConfig("application.crypto.aes.transformation").getOrElse("AES")
+  
+  def secret: String = {
+    getConfiguration().getString("play.crypto.secret") match {      
+      case Some(s) => s
+      case _ => throw new RuntimeException("No application secret found")
+    }
+  }
+    
 }
 
 trait SecurityCookieTokens {

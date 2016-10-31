@@ -11,6 +11,7 @@ import models.ApplicationRoleMembership
 import models.User
 import models.UserRoleMember
 import play.api.Play
+import play.api.Configuration
 import play.api.db.slick.DatabaseConfigProvider
 import scalaext.OptionExt._
 import slick.driver.JdbcProfile
@@ -52,7 +53,7 @@ trait UserService {
 }
 
 @Singleton
-class UserServiceDatabase @Inject()(dbConfigProvider: DatabaseConfigProvider) extends UserService with AbstractService {
+class UserServiceDatabase @Inject()(dbConfigProvider: DatabaseConfigProvider, configuration: Configuration) extends UserService with AbstractService {
   
   val db = dbConfigProvider.get[JdbcProfile].db
   
@@ -63,7 +64,7 @@ class UserServiceDatabase @Inject()(dbConfigProvider: DatabaseConfigProvider) ex
   override def authenticate(email: String, password: String): Future[LoginResult] = {
     db.run(UsersDAO.findByEmail(email)) map { userOption =>
         userOption ifSome { user =>
-          if (user.isAccountLocked(Play.current.configuration.getInt(controllers.MAX_FAILED_LOGIN_ATTEMPTS).getOrElse(3))) {
+          if (user.isAccountLocked(configuration.getInt(controllers.MAX_FAILED_LOGIN_ATTEMPTS).getOrElse(3))) {
              AccountLocked()   
           } else if (user.password.get == password) {
              SuccessfulLogin(user)

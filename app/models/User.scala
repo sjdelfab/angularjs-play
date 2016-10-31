@@ -1,11 +1,6 @@
 package models
 
-import java.util.Date
-import scala.util.Try
-import slick.driver.PostgresDriver.simple._
-import slick.lifted.ExtensionMethods
-import play.api.Play.current
-import play.api.Play
+import play.api.libs.functional.syntax.toFunctionalBuilderOps
 
 case class User(
   id: Option[Long] = None,
@@ -27,8 +22,8 @@ case class User(
 
 object User extends ((Option[Long],String,Option[String],String,Int,Boolean) => User) {
 
-  import play.api.libs.json._
   import play.api.libs.functional.syntax._
+  import play.api.libs.json._
 
   def newUser(email: String, name: String, enabled: Boolean, password: Option[String]):User = {
     User(None,email,password,name,0,enabled)
@@ -38,19 +33,25 @@ object User extends ((Option[Long],String,Option[String],String,Int,Boolean) => 
     User(id,email,None,name,0,enabled)
   }
   
-  implicit val UserToJson: Writes[User] = (
-    (__ \ "id").write[String] ~
-    (__ \ "email").write[String] ~
-    (__ \ "name").write[String] ~
-    (__ \ "accountLocked").write[Boolean] ~
-    (__ \ "enabled").write[Boolean]
-  )((user: User) => (
-    controllers.IndirectReferenceMapper.convertInternalIdToExternalised(user.id.get),
-    user.email,
-    user.name,
-    user.isAccountLocked(Play.current.configuration.getInt(controllers.MAX_FAILED_LOGIN_ATTEMPTS).getOrElse(3)),
-    user.enabled 
-  ))
+  def createJsonWrite(maxLoginAttempts: Int, idExternaliser: (User) => String): Writes[User] = {
+     val userWrites: Writes[User] = (
+      (__ \ "id").write[String] ~
+      (__ \ "email").write[String] ~
+      (__ \ "name").write[String] ~
+      (__ \ "accountLocked").write[Boolean] ~
+      (__ \ "enabled").write[Boolean]
+     )((user: User) => (
+      idExternaliser(user),
+      user.email,
+      user.name,
+      user.isAccountLocked(maxLoginAttempts),
+      user.enabled 
+    ))
+    userWrites
+  }
+
+
+
 
 }
 

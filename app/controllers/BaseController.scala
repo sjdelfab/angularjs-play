@@ -1,5 +1,6 @@
 package controllers
 
+import models.User
 import play.api._
 import play.api.mvc._
 import play.api.libs.json._
@@ -9,7 +10,11 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import play.api.data.validation.ValidationError
 import security.InternalUser
 
-trait BaseController { self: Controller { def getUserSession(): UserSession } =>
+trait BaseController { self: Controller { 
+                               def getUserSession(): UserSession
+                               def getConfiguration(): Configuration
+                               def getIndirectReferenceMapper(): IndirectReferenceMapper
+                             } =>
   
   protected def UserBadRequest(operation: String, sessionUser: InternalUser, errors: Seq[(JsPath, Seq[ValidationError])]): Future[Result] = {    
       Future{
@@ -31,4 +36,7 @@ trait BaseController { self: Controller { def getUserSession(): UserSession } =>
     status
   }
   
+  implicit val userToJsonWrites: Writes[User] = User.createJsonWrite(getConfiguration.getInt(controllers.MAX_FAILED_LOGIN_ATTEMPTS).getOrElse(3), 
+                                                                     user => getIndirectReferenceMapper().convertInternalIdToExternalised(user.id.get))
+
 }

@@ -10,10 +10,12 @@ import play.api.Play
 import services.PlayCacheUserSession
 import services.UserServiceDatabase
 import services.DevelopmentUserSession
+import controllers.IndirectReferenceMapper
+import controllers.CryptoIndirectReferenceMapper
   
 class ApplicationModule(environment: Environment, configuration: Configuration) extends AbstractModule {
   
-  def configure() = {
+  def configure() {
       environment.mode match {
          case play.api.Mode.Dev => {
              Logger.info("Using dev cache service")
@@ -29,5 +31,6 @@ class ApplicationModule(environment: Environment, configuration: Configuration) 
          case _ => {}
       }
       bind(classOf[UserService]).to(classOf[UserServiceDatabase])
+      bind(classOf[IndirectReferenceMapper]).to(classOf[CryptoIndirectReferenceMapper])
   }
 }
