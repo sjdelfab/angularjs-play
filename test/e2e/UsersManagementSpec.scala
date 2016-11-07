@@ -20,62 +20,49 @@ import org.scalatestplus.play.OneBrowserPerSuite
 import org.scalatestplus.play.OneServerPerSuite
 import org.scalatestplus.play.PlaySpec
 
-import controllers.SecurityCookieTokens
 import models.ApplicationRoleMembership
 import models.User
 import play.api.test._
 import scalaext.OptionExt.extendOption
-import security.InternalUser
 import services.InvalidLoginAttempt
 import services.SuccessfulLogin
 import services.UserService
-import services.UserSession
 import utils.PasswordCrypt
 import play.api.inject.guice.GuiceApplicationBuilder
 import play.api.inject.bind
+import com.mohiva.play.silhouette.password.BCryptPasswordHasher
 
 
 @ChromeBrowser
-class UsersManagementSpec extends PlaySpec with OneServerPerSuite with OneBrowserPerSuite with DevChromeFactory with SecurityCookieTokens with MockitoSugar with BeforeAndAfterAll {
+class UsersManagementSpec extends PlaySpec with OneServerPerSuite with OneBrowserPerSuite with DevChromeFactory with MockitoSugar with BeforeAndAfterAll {
   
   val userService = mock[UserService]
   
-  val user = User(Some(1),"simon@email.com",Some("password"),"Simon",0,true)
+  val hasher = new BCryptPasswordHasher()
+  val encryptedPassword = hasher.hash("password").password
+  
+  val user = User(Some(1),"simon@email.com",Some(encryptedPassword),"Simon",0,true)
   val users = (ArraySeq(user),1)
   when(userService.getUsers(1,50)).thenReturn(Future{users._1})        
   when(userService.findOneById(1)).thenReturn(Future{user})
   when(userService.getTotalUserCount()).thenReturn(Future{1})
   val allRoles: Seq[ApplicationRoleMembership] = List(ApplicationRoleMembership(1l,"admin"),ApplicationRoleMembership(1l,"resource_manager"))
   when(userService.getRoles(1l)).thenReturn(Future{allRoles})
-  val encryptedPassword = PasswordCrypt.encrypt("password").get
-        
-  when(userService.authenticate("simon@email.com",encryptedPassword)).thenReturn(Future{SuccessfulLogin(user)})
-  when(userService.authenticate("wrong@email.com",encryptedPassword)).thenReturn(Future{InvalidLoginAttempt()})
   
-  val userSession = mock[UserSession]
-  val internalUser = new InternalUser("person@email.com",1l,Some(allRoles))
-  when(userSession.lookup(anyString())).thenReturn(Some(internalUser))
-  
+  when(userService.findByEmail("simon@email.com")).thenReturn(Future.successful(Some(user)))
+  when(userService.findByEmail("wrong@email.com")).thenReturn(Future.successful(None))
+    
   import controllers.`package`.PASSWORD_POLICY_MESSAGE
   
   implicit override lazy val app = new GuiceApplicationBuilder()
                        .configure(PASSWORD_POLICY_MESSAGE -> "Password not strong enough")
                        .overrides(bind(classOf[UserService]).toInstance(userService))
-                       .overrides(bind(classOf[UserSession]).toInstance(userSession))
                        .build
   
   override def afterAll() = {
     val stopFuture = Await.result(app.stop(),Duration.Inf)
   }  
-    
-  def createAdminUserSession() = {
-    val userSession = mock[UserSession]
-    val allRoles: Seq[ApplicationRoleMembership] = List(ApplicationRoleMembership(1l,"admin"),ApplicationRoleMembership(1l,"resource_manager"))
-    val user = new InternalUser("person@email.com",1l,Some(allRoles))
-    when(userSession.lookup(anyString())).thenReturn(Some(user))
-    userSession
-  }  
-    
+     
   val baseUrl = "http://localhost:" + port  
     
   "Login" must {
@@ -210,7 +197,6 @@ class UsersManagementSpec extends PlaySpec with OneServerPerSuite with OneBrowse
         }
       }
   }
-
 }
 
 trait DevChromeFactory extends BrowserFactory {

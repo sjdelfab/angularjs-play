@@ -115,8 +115,8 @@ Need to install Chrome driver: https://code.google.com/p/selenium/wiki/ChromeDri
 
 From the play prompt, compile using test:compile and run with test.
 
-## Authorization
-Based on Deadbolt and combined with XSRF handling code. See controllers/Security.scala for details and security package.
+## Authentication & Authorization
+With Silhouette and Satellizer JS  
 
 ## Form Validation
 Display a popover whenever there is an invalid field. See app/assets/javascripts/common/directives/validate.js for details and acknowledgments. 

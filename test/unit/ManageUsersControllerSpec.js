@@ -9,6 +9,7 @@ define([ 'angular', 'angularMocks','app','user','common','angular-cookies', 'ang
         beforeEach(function() {
             module('app',function($provide) {
                 $provide.value('playRoutes', mockPlayRoutes);
+                $provide.value('$auth',mockAuth);
                }
             );
             

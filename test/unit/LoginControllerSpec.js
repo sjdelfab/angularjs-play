@@ -1,5 +1,4 @@
-define([ 'angular', 'angularMocks','app','user','common','angular-cookies', 'angular-route',
-         'ui-bootstrap','angular-translate','angular-translate-loader-partial','angular-translate-loader-url'], 
+define([ 'angular', 'angularMocks','app','user','common'], 
 		function(angular, mocks) {
 	'use strict';
 	
@@ -9,6 +8,7 @@ define([ 'angular', 'angularMocks','app','user','common','angular-cookies', 'ang
 		beforeEach(function() {
 		    module('app',function($provide) {
                 $provide.value('playRoutes', mockPlayRoutes);
+                $provide.value('$auth',mockNotAuth);
                }
             );
 			
@@ -55,7 +55,8 @@ define([ 'angular', 'angularMocks','app','user','common','angular-cookies', 'ang
 		describe("Login Controller - Invalid username or password", function() {
 			beforeEach(function() {
 				loginErrorStatus = {};
-				loginErrorStatus.login_error_status = "INVALID_USERNAME_PASSWORD";
+				loginErrorStatus.data = {};
+				loginErrorStatus.data.login_error_status = "INVALID_USERNAME_PASSWORD";
 			});
 			
 			it('Invalid username or password', function() {
@@ -73,7 +74,8 @@ define([ 'angular', 'angularMocks','app','user','common','angular-cookies', 'ang
 		describe("Login Controller - Account locked", function() {
 			beforeEach(function() {
 				loginErrorStatus = {};
-				loginErrorStatus.login_error_status = "ACCOUNT_LOCKED";
+				loginErrorStatus.data = {};
+				loginErrorStatus.data.login_error_status = "ACCOUNT_LOCKED";
 			});
 			
 			it('Account locked', function() {

@@ -39,8 +39,8 @@ define([ 'angular' ], function(angular) {
                 $scope.loginInProgress = true;
                 var errorCallback = function(loginResult) {
                     $scope.loginInProgress = false;
-                    if (angular.isDefined(loginResult) && angular.isDefined(loginResult.login_error_status)) {
-                        showErrorMessage(getLoginErrorMessage(loginResult.login_error_status));
+                    if (angular.isDefined(loginResult) && angular.isDefined(loginResult.data) && angular.isDefined(loginResult.data.login_error_status)) {
+                        showErrorMessage(getLoginErrorMessage(loginResult.data.login_error_status));
                     } else {
                         showErrorMessage(unable_to_login_message);
                     }

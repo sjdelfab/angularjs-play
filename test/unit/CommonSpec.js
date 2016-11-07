@@ -1,14 +1,3 @@
-var mockPlayRoutes;
-mockPlayRoutes = {
-    'controllers' : {
-        'Users' : {
-            currentLoggedInUser : function() {
-                return createMockPromise();
-            }
-        }
-    }
-};
-
 var createMockPromise = function() {
     var getFunction = {};
     getFunction.get = function() {
@@ -25,4 +14,25 @@ var createMockPromise = function() {
         return promise;
     }
     return getFunction;
+};
+
+var mockPlayRoutes;
+mockPlayRoutes = {
+    'controllers' : {
+        'Users' : {
+            currentLoggedInUser : function() {
+                return createMockPromise();
+            }
+        }
+    }
+};
+
+var mockNotAuth;
+mockNotAuth = {
+   isAuthenticated: function() { return false; }    
+};
+
+var mockAuth;
+mockAuth = {
+   isAuthenticated: function() { return false; }    
 };

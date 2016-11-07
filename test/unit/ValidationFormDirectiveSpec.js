@@ -1,13 +1,17 @@
-define([ 'angular', 'angularMocks','app','common'], 
+define([ 'angular','angularMocks','app','common','user','home','angular-cookies', 'angular-route', 'angular-sanitize','jquery', 
+         'bootstrap','ui-bootstrap','angular-ui-select','angular-translate', 'angular-translate-loader-url', 
+         'angular-translate-loader-partial','satellizer'], 
         function(angular, mocks) {
     'use strict';
 
     describe("Validate Form Directive Test", function() {
 
         var $scope, $compile, compileEl, compileElUsingDots, compileInvalidEl;
+               
         beforeEach(function() {
             module('app',function($provide) {
                     $provide.value('playRoutes', mockPlayRoutes);
+                    $provide.value('$auth',mockNotAuth);
                 }
             );
             
@@ -19,8 +23,7 @@ define([ 'angular', 'angularMocks','app','common'],
         });
         
         compileEl = function() {
-            var el;
-            el = $compile('<form name="userForm" data-form-validation>\
+            var el = $compile('<form name="userForm" data-form-validation>\
                 <div id="first-name-group" class="form-group" >\
                   <input type="text" name="firstName" ng-model="firstName" data-ng-minlength="3" data-ng-maxlength="10" class="form-control" data-validate-popups/>\
                 </div>\
@@ -40,8 +43,7 @@ define([ 'angular', 'angularMocks','app','common'],
         };
         
         compileElUsingDots = function() {
-            var el;
-            el = $compile('<form name="users.userForm" data-form-validation>\
+            var el = $compile('<form name="users.userForm" data-form-validation>\
                 <div id="first-name-group" class="form-group" >\
                   <input type="text" name="firstName" ng-model="users.firstName" data-ng-minlength="3" data-ng-maxlength="10" class="form-control" data-validate-popups/>\
                 </div>\
@@ -52,8 +54,7 @@ define([ 'angular', 'angularMocks','app','common'],
         };
         
         compileInvalidEl = function() {
-            var el;
-            el = $compile('<form name="userForm" data-form-validation>\
+            var el = $compile('<form name="userForm" data-form-validation>\
                 <div id="id-group" class="form-group">\
                     <input type="text" name="id" ng-model="id" class="form-control" ng-pattern="/^\d+$/" data-validate-popups/>\
                 </div>\
@@ -65,8 +66,7 @@ define([ 'angular', 'angularMocks','app','common'],
         
         describe('ng-pattern input does not have data-invalid-pattern-message attribute', function() {
             it('throws an exception', function() {
-                var formEl;
-                formEl = compileInvalidEl();
+                var formEl = compileInvalidEl();
                 $scope.userForm.id.$setViewValue('to');
 
                 return expect(function() {
@@ -77,8 +77,7 @@ define([ 'angular', 'angularMocks','app','common'],
         
         describe('Invalid', function() {
             it('Minimum length is invalid', function() {
-               var el;
-               el = compileEl();
+               var el = compileEl();
                $scope.userForm.firstName.$setViewValue('to');
                expect($scope.userForm.validateForm()).toBe(false);
                $scope.$digest();
@@ -87,8 +86,7 @@ define([ 'angular', 'angularMocks','app','common'],
             });
             
             it('Maximum length is invalid', function() {
-                var el;
-                el = compileEl();
+                var el = compileEl();
                 $scope.userForm.firstName.$setViewValue('12345678901');
                 expect($scope.userForm.validateForm()).toBe(false);
                 $scope.$digest();
@@ -97,8 +95,7 @@ define([ 'angular', 'angularMocks','app','common'],
             });
             
             it('Required is invalid', function() {
-                var el;
-                el = compileEl();
+                var el = compileEl();
                 $scope.userForm.firstName.$setViewValue('Simon');
                 expect($scope.userForm.validateForm()).toBe(false);
                 $scope.$digest();
@@ -107,8 +104,7 @@ define([ 'angular', 'angularMocks','app','common'],
             });
             
             it('Email is invalid', function() {
-                var el;
-                el = compileEl();
+                var el = compileEl();
                 $scope.userForm.firstName.$setViewValue('Simon');
                 $scope.userForm.lastName.$setViewValue('Del');
                 $scope.userForm.email.$setViewValue('simon@');
@@ -119,8 +115,7 @@ define([ 'angular', 'angularMocks','app','common'],
             });
             
             it('Pattern is invalid', function() {
-                var el;
-                el = compileEl();
+                var el = compileEl();
                 $scope.userForm.firstName.$setViewValue('Simon');
                 $scope.userForm.lastName.$setViewValue('Del');
                 $scope.userForm.id.$setViewValue('foo');
@@ -137,8 +132,7 @@ define([ 'angular', 'angularMocks','app','common'],
             });
             
             it('Minimum length is invalid', function() {
-               var el;
-               el = compileElUsingDots();
+               var el = compileElUsingDots();
                $scope.users.userForm.firstName.$setViewValue('to');
                expect($scope.users.userForm.validateForm()).toBe(false);
                $scope.$digest();

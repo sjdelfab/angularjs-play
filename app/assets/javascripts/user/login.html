@@ -13,8 +13,8 @@
 						<div class="form-group">
 							<input autocomplete="off" class="form-control" placeholder="{{'password_placeholder' | translate}}" name="password" type="password" value="" data-ng-model="credentials.password" required />
 						</div>
-						<input type="submit" class="btn btn-lg btn-primary btn-block" data-ng-disabled="loginForm.$invalid" data-ng-click="login(credentials)" value="{{'login_button' | translate}}">
-						<div class="login-progress" ng-show="loginInProgress"><i class="fa fa-cog fa-spin fa-2x"></i></div>
+						<input type="submit" class="btn btn-lg btn-primary btn-block" data-ng-disabled="loginForm.$invalid" value="{{'login_button' | translate}}">
+						<div class="login-progress" data-ng-show="loginInProgress"><i class="fa fa-cog fa-spin fa-2x"></i></div>
 					</fieldset>
 				</form>
 			</div>

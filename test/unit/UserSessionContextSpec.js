@@ -5,29 +5,24 @@ define([ 'angular', 'angularMocks','app','user','common','angular-cookies', 'ang
 	describe("User Session Context Failed Request Login Test", function() {
 
 		var testuserSessionContext, $scope, $qpromise, mockPlayRoutes, errorMessage = 'Server error';
+		
+		var mockAuth = {
+		   isAuthenticated: function() { return false; },     
+		   login: function(credentials) { 
+		       var deferred = $qpromise.defer();
+		       deferred.reject(errorMessage);
+               var promise = deferred.promise; 
+               promise.catch = function(errorCallback) {
+                   this.then(null,errorCallback);
+               }
+               return promise;
+		   }    
+		};
+		
 		beforeEach(function() {
             module('app',function($provide) {
-            	mockPlayRoutes = {
-            	    'controllers': {
-            	    	'Application': {
-            	    		login: function() {
-            	    			var postFunction = {};
-            	    			postFunction.post = function(credentials) {
-            	    				var deferred = $qpromise.defer();
-            						deferred.reject(errorMessage);
-            						var promise = deferred.promise; 
-            						promise.error = function(errorCallback) {
-            							this.then(null,errorCallback);
-            						}
-            						return promise;
-            	    			}
-            	    			return postFunction;
-            	    		}
-            	    	}
-            		}
-            	};
-            	
             	$provide.value('playRoutes', mockPlayRoutes);
+            	$provide.value('$auth',mockAuth);
             });
             
 			inject(function($rootScope, $injector, userSessionContext, $q) {

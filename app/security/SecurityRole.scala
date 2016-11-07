@@ -1,12 +1,5 @@
 package security
 
-class SecurityRole(val roleName: String) extends Role
-{
+case class SecurityRole(val roleName: String) {
   def getName: String = roleName
-}
-
-trait Role {
-  
-  def getName: String
-  
 }

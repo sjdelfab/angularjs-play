@@ -1,120 +1,42 @@
 package controllers
 
-import play.api._
-import play.api.mvc._
-import play.api.libs.json._
-import play.api.cache._
-import play.api.libs.concurrent.Execution.Implicits.defaultContext
-import services.UserSession
 import scala.concurrent.Future
-import security.InternalUser
+
+import com.mohiva.play.silhouette.api.Silhouette
+import com.mohiva.play.silhouette.api.actions.SecuredRequest
+
+import play.api.mvc.Action
+import play.api.mvc.BodyParser
+import play.api.mvc.Controller
+import play.api.mvc.Result
+import play.api.mvc.Results
+import security.AuthenticationEnv
 
 /**
  * Security actions that should be used by all controllers that need to protect their actions.
  * Can be composed to fine-tune access control.
  */
-trait Security extends SecurityCookieTokens with security.Crypto { self: Controller { 
-                                                      def getUserSession(): UserSession
-                                                      def getConfiguration(): Configuration                                                      
-                                             }  =>  
-  /**
-    * Checks that the token is:
-    * - present in the cookie header of the request,
-    * - either in the header or in the query string,
-    * - matches a token already stored in the play cache
-    */
-  def ValidUserAction[A](parser: BodyParser[A] = parse.anyContent)(action: String => InternalUser => Request[A] => Result): Action[A] =
-    Action.async(parser) { implicit request =>
-      scala.concurrent.Future {
-          request.cookies.get(AUTH_TOKEN_COOKIE_KEY).fold {
-            Unauthorized(Json.obj("message" -> "Invalid XSRF Token cookie"))
-          } { xsrfTokenCookie =>
-            val maybeToken = request.headers.get(AUTH_TOKEN_HEADER).orElse(request.getQueryString(AUTH_TOKEN_URL_KEY))
-            maybeToken flatMap { token =>
-              val unencryptedToken = decryptAES(token)
-              getUserSession().lookup(unencryptedToken) map { sessionUser =>
-                if (xsrfTokenCookie.value.equals(token)) {
-                  action(token)(sessionUser)(request)
-                } else {
-                  Unauthorized(Json.obj("message" -> "Invalid Token"))
-                }
-              }
-            } getOrElse Unauthorized(Json.obj("message" -> "No Token"))
-          }
-      }
-    }
+trait Security { self: Controller =>  
+      
+  def silhouette: Silhouette[AuthenticationEnv]
   
-  def ValidUserAsyncAction[A](parser: BodyParser[A] = parse.anyContent)(action: String => InternalUser => Request[A] => Future[Result]): Action[A] =
-    Action.async(parser) { implicit request =>
-          request.cookies.get(AUTH_TOKEN_COOKIE_KEY).fold {
-              scala.concurrent.Future { Unauthorized(Json.obj("message" -> "Invalid XSRF Token cookie")) }
-          } { xsrfTokenCookie =>
-            val maybeToken = request.headers.get(AUTH_TOKEN_HEADER).orElse(request.getQueryString(AUTH_TOKEN_URL_KEY))
-            maybeToken flatMap { token =>
-              val unencryptedToken = decryptAES(token)
-              getUserSession().lookup(unencryptedToken) map { sessionUser =>
-                if (xsrfTokenCookie.value.equals(token)) {
-                  action(token)(sessionUser)(request)                    
-                } else {
-                  scala.concurrent.Future { Unauthorized(Json.obj("message" -> "Invalid Token")) }
-                }
-              }
-            } getOrElse {
-              scala.concurrent.Future {
-                  Unauthorized(Json.obj("message" -> "No Token"))
-              }
-            }
-          }
-    }  
-
-  def Restrict[A](parser: BodyParser[A] = parse.anyContent)(roleNames: Array[String])(action: String => InternalUser => Request[A] => Result): Action[A] = {
-    Restriction[A](parser)(List(roleNames))(action)
-  }
-
+  def SecuredAction = silhouette.SecuredAction
+  def UnsecuredAction = silhouette.UnsecuredAction
+  def UserAwareAction = silhouette.UserAwareAction
   
-  def Restriction[A](parser: BodyParser[A] = parse.anyContent)(roleGroups: List[Array[String]])(action: String => InternalUser => Request[A] => Result): Action[A] = {
-    ValidUserAction[A](parser) { token => sessionUser => implicit request =>
-      if (sessionUser.checkRoles(roleGroups)) {
-           action(token)(sessionUser)(request)
-      } else {
-           Results.Forbidden
-      } 
-    }
-  }
-  
-  def RestrictAsync[A](parser: BodyParser[A] = parse.anyContent)(roleNames: Array[String])(action: String => InternalUser => Request[A] => Future[Result]): Action[A] = {
+  def RestrictAsync[A](parser: BodyParser[A] = parse.anyContent)(roleNames: Array[String])(action: SecuredRequest[AuthenticationEnv, A] => Future[Result]): Action[A] = {
     RestrictionAsync[A](parser)(List(roleNames))(action)
   }
   
-  def RestrictionAsync[A](parser: BodyParser[A] = parse.anyContent)(roleGroups: List[Array[String]])(action: String => InternalUser => Request[A] => Future[Result]): Action[A] = {
-    ValidUserAsyncAction[A](parser) { token => sessionUser => implicit request =>
-      if (sessionUser.checkRoles(roleGroups)) {
-           action(token)(sessionUser)(request)
+  def RestrictionAsync[A](parser: BodyParser[A] = parse.anyContent)(roleGroups: List[Array[String]])(action: SecuredRequest[AuthenticationEnv, A] => Future[Result]): Action[A] = {
+    SecuredAction.async(parser) { implicit request =>
+      val user = request.identity
+      if (user.checkRoles(roleGroups)) {
+           action(request)
       } else {
-        scala.concurrent.Future {
-           Results.Forbidden
-        }
+           Future.successful(Results.Forbidden)
       } 
     }
   }
   
-  private def getConfig(key: String) = getConfiguration().getString(key)
-  
-  def transformation: String = getConfig("application.crypto.aes.transformation").getOrElse("AES")
-  
-  def secret: String = {
-    getConfiguration().getString("play.crypto.secret") match {      
-      case Some(s) => s
-      case _ => throw new RuntimeException("No application secret found")
-    }
-  }
-    
-}
-
-trait SecurityCookieTokens {
-  
-  final val AUTH_TOKEN_HEADER = "X-XSRF-TOKEN"
-  final val AUTH_TOKEN_COOKIE_KEY = "XSRF-TOKEN"
-  final val AUTH_TOKEN_URL_KEY = "URL-XSRF-TOKEN"
-
 }

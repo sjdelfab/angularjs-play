@@ -22,6 +22,7 @@ requirejs.config({
         'angular-translate': ['/base/target/web/web-modules/main/webjars/lib/angular-translate/angular-translate'],
         'angular-translate-loader-partial': ['/base/target/web/web-modules/main/webjars/lib/angular-translate-loader-partial/angular-translate-loader-partial'],
         'angular-translate-loader-url': ['/base/target/web/web-modules/main/webjars/lib/angular-translate-loader-url/angular-translate-loader-url'],
+        'satellizer': ['/base/target/web/web-modules/main/webjars/lib/satellizer/satellizer'],
         'app': './app'
     },
 
@@ -41,7 +42,8 @@ requirejs.config({
         'ui-bootstrap': ['angular'],
         'angular-translate': ['angular'],
         'angular-translate-loader-partial': ['angular-translate'],
-        'angular-translate-loader-url': ['angular-translate']
+        'angular-translate-loader-url': ['angular-translate'],
+        'satellizer': ['angular']
     },
 
     // Ask Require.js to load these files (all our tests).

@@ -13,9 +13,11 @@
     This configures the log level to log at for a package and its children packages.
   -->
   <logger name="play" level="INFO" />
-  <logger name="application" level="DEBUG" />
-  <logger name="scala.jdbc" level="DEBUG" />
-
+  <logger name="application" level="INFO" />
+  <logger name="scala.jdbc" level="INFO" />
+  <logger name="com.mohiva" level="INFO" />
+  <logger name="com.mohiva.play.silhouette.api.Silhouette" level="INFO" />
+  
   <root level="ERROR">
     <appender-ref ref="STDOUT" />
   </root>

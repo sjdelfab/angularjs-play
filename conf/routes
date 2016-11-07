@@ -32,7 +32,7 @@ DELETE  /deleteRoleMember           @controllers.Users.deleteRoleMember(external
 POST    /addNewRoleMembers			@controllers.Users.addUsersToRole()
 GET     /getMyProfile			    @controllers.Users.getMyProfile()
 POST    /updateMyProfile			@controllers.Users.updateMyProfile()
-POST    /changeMyPassword     	    @controllers.Users.changeMyPassword(currentPassword: String, newPassword: String)
+POST    /changeMyPassword     	    @controllers.Application.changeMyPassword(currentPassword: String, newPassword: String)
 
 # Map static resources from the /public folder to the /assets URL path
 GET     /assets/*file               controllers.Assets.at(path="/public", file)

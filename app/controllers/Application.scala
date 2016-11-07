@@ -1,33 +1,57 @@
 package controllers
 
-import models._
-import java.util.UUID
-import javax.inject.{Singleton, Inject}
-import play.api._
-import play.api.mvc._
-import play.api.libs.json._
-import play.api.libs.json.Reads._
-import play.api.libs.functional.syntax._
-import play.api.cache._
-import scalaext.OptionExt._
-import services.UserSession
-import services.UserService
-import play.api.libs.concurrent.Execution.Implicits.defaultContext
-import services.InvalidLoginAttempt
-import services.AccountLocked
-import services.SuccessfulLogin
-import utils.PasswordCrypt
-import security.InternalUser
 import scala.concurrent.Future
 
+import com.mohiva.play.silhouette.api.LoginInfo
+import com.mohiva.play.silhouette.api.LoginEvent
+import com.mohiva.play.silhouette.api.Silhouette
+import com.mohiva.play.silhouette.api.exceptions.ProviderException
+import com.mohiva.play.silhouette.api.repositories.AuthInfoRepository
+import com.mohiva.play.silhouette.api.util.Credentials
+import com.mohiva.play.silhouette.impl.providers.CredentialsProvider
+
+import javax.inject.Inject
+import javax.inject.Singleton
+import play.api.Configuration
+import play.api.Logger
+import play.api.cache.Cached
+import play.api.libs.concurrent.Execution.Implicits.defaultContext
+import play.api.libs.functional.syntax.toFunctionalBuilderOps
+import play.api.libs.json.JsError
+import play.api.libs.json.Json
+import play.api.libs.json.Json.toJsFieldJsValueWrapper
+import play.api.libs.json.Reads.StringReads
+import play.api.libs.json.Reads.applicative
+import play.api.libs.json.Reads.functorReads
+import play.api.libs.json.Reads.minLength
+import play.api.libs.json.__
+import play.api.mvc.Action
+import play.api.mvc.AnyContent
+import play.api.mvc.Controller
+import play.api.mvc.Cookie
+import play.api.mvc.DiscardingCookie
+import play.api.mvc.Request
+import play.api.mvc.Result
+import scalaz._
+import security.AuthenticationEnv
+import security.UserIdentity
+import security.UserIdentityService
+import services.AccountLocked
+import services.SuccessfulLogin
+import services.UserService
+import com.mohiva.play.silhouette.api.LogoutEvent
+import com.mohiva.play.silhouette.api.util.PasswordHasher
+
 @Singleton
-class Application @Inject() (userSession: UserSession, 
-                             userService: UserService, 
+class Application @Inject() (userService: UserService, 
                              configuration: Configuration,
                              cached: Cached,
-                             indirectReferenceMapper: IndirectReferenceMapper) extends Controller with Security with BaseController {
-
-  def getUserSession(): UserSession = userSession
+                             indirectReferenceMapper: IndirectReferenceMapper,
+                             val silhouette: Silhouette[AuthenticationEnv],
+                             userIdentityService: UserIdentityService,
+                             authInfoRepository: AuthInfoRepository,
+                             credentialsProvider: CredentialsProvider,
+                             passwordHasher: PasswordHasher) extends Controller with Security with BaseController {
   
   def getUserService(): UserService = userService
   
@@ -73,16 +97,8 @@ class Application @Inject() (userSession: UserSession,
       (__ \ "email").read[String](minLength[String](5)) ~
       (__ \ "password").read[String](minLength[String](2))
     )((email, password) => LoginCredentials(email, password))
-
-  /**
-   * Log-in a user. Expects the credentials in the body in JSON format.
-   *
-   * Set the cookie [[AUTH_TOKEN_COOKIE_KEY]] to have AngularJS set the X-XSRF-TOKEN in the HTTP
-   * header.
-   *
-   * @return The token needed for subsequent requests
-   */
-  def login() = Action.async { request =>           
+  
+  def login() = UnsecuredAction.async { request =>           
 	    request.body.asJson.map { json =>
 	      json.validate[LoginCredentials].fold(
 		      errors => {
@@ -92,11 +108,7 @@ class Application @Inject() (userSession: UserSession,
 		        }
 		      },
 		      credentials => {
-		        PasswordCrypt.encrypt(credentials.password) ifSome { encryptedPassword =>
-		            performLogin(credentials.email,encryptedPassword)
-		        } otherwise {
-		           LoginErrorStatusResult(credentials.email,"INVALID_USERNAME_PASSWORD")
-		        }
+		        attemptAuthentication(credentials,request)
 		      }
 	    )
 	    }.getOrElse {
@@ -111,38 +123,110 @@ class Application @Inject() (userSession: UserSession,
   		   BadRequest(Json.obj("login_error_status" -> status))
 		 }
   }
-    
-  private def performLogin(email: String, encryptedPassword: String) = {
-    val actions = for {
-        loginResult <- userService.authenticate(email, encryptedPassword) 
+
+  private def attemptAuthentication(credentials: LoginCredentials, request: Request[AnyContent]): Future[Result] = {
+      for {
+        authAttempt <- tryAuthenticate(credentials)
         result <- {
-            loginResult match {
-              case SuccessfulLogin(user) => {
-                val token = UUID.randomUUID.toString
-                val encryptedToken = encryptAES(token)
-                userService.getRoles(user.id.get) map { userRoles => 
-                  userSession.register(token, new InternalUser(user.email,user.id.get,Some(userRoles)))
-                  Ok(Json.obj("token" -> encryptedToken, "user" -> Json.toJson(user)))
-                    .withCookies(Cookie(AUTH_TOKEN_COOKIE_KEY, encryptedToken, None, httpOnly = false))
-                    .withNewSession
-                }
-              }
-              case InvalidLoginAttempt() => LoginErrorStatusResult(email,"INVALID_USERNAME_PASSWORD")
-              case AccountLocked() => LoginErrorStatusResult(email,"ACCOUNT_LOCKED")
-            }
-        }  
-    } yield result
-    actions
+          authAttempt match {
+		         case \/-(loginInfo: LoginInfo) => handleLogin(loginInfo,request)
+		         case -\/(failed: FailedLogin) => LoginErrorStatusResult(credentials.email,"INVALID_USERNAME_PASSWORD")
+		      }
+        }
+      } yield result
   }
   
-  /**
-   * Log-out a user. Invalidates the authentication token.
-   *
-   * Discard the cookie [[AUTH_TOKEN_COOKIE_KEY]] to have AngularJS no longer set the
-   * X-XSRF-TOKEN in HTTP header.
-   */
-  def logout() = ValidUserAction(parse.empty) { token => userId => implicit request =>
-    userSession.deregister(token)
-    Ok.discardingCookies(DiscardingCookie(name = AUTH_TOKEN_COOKIE_KEY))
+  case class FailedLogin()
+  
+  private def tryAuthenticate(credentials: LoginCredentials): Future[FailedLogin \/ LoginInfo] = {
+     credentialsProvider.authenticate(Credentials(credentials.email, credentials.password)).map { loginInfo =>
+       \/-(loginInfo)
+     }.recover {
+       case e: ProviderException => {
+         // TODO pass parameter with more contextual info
+         -\/(FailedLogin())
+       }
+     }
   }
+  
+  private def handleLogin(loginInfo: LoginInfo, request: Request[AnyContent]): Future[Result] = {
+     for {
+       user <- userIdentityService.retrieve(loginInfo)
+		   authenticator <- silhouette.env.authenticatorService.create(loginInfo)(request)
+		   result <- user.fold(LoginErrorStatusResult(loginInfo.providerKey,"INVALID_USERNAME_PASSWORD")) { identity =>
+		       validateIdentity(identity) match {
+		         case SuccessfulLogin(user) => {
+		            silhouette.env.eventBus.publish(LoginEvent(identity, request))
+                silhouette.env.authenticatorService.init(authenticator)(request).map { token =>
+                  Ok(Json.obj("token" -> token, "user" -> Json.toJson(user)))
+                    .withNewSession 
+                }
+		         }
+		         case AccountLocked() => LoginErrorStatusResult(identity.user.email,"ACCOUNT_LOCKED")
+		       }
+		     }
+     } yield result
+  }
+  
+  private def validateIdentity(identity: UserIdentity) = {
+    if (identity.user.isAccountLocked(configuration.getInt(controllers.MAX_FAILED_LOGIN_ATTEMPTS).getOrElse(3))) {
+       AccountLocked()   
+    } else {
+       SuccessfulLogin(identity.user)
+    }
+  }
+  
+  def logout() = SecuredAction.async { implicit request =>
+    silhouette.env.eventBus.publish(LogoutEvent(request.identity, request))
+    silhouette.env.authenticatorService.discard(request.authenticator, Ok)
+  }
+  
+  def changeMyPassword(currentPassword: String, newPassword: String) = SecuredAction.async(parse.empty) { implicit request =>
+    val credentials = LoginCredentials(request.identity.user.email,currentPassword)
+    for {
+        authAttempt <- tryAuthenticate(credentials)
+        result <- {
+          authAttempt match {
+		         case \/-(loginInfo: LoginInfo) => handlePasswordChange(loginInfo,newPassword)
+		         case -\/(failed: FailedLogin) => {
+		           Future.successful({
+  		           Logger.info(s"User: ${request.identity.user.email}. Change Own Password: Invalid current password")
+                 OkNoCache(Json.obj("status" -> "INVALID_CURRENT_PASSWORD"))
+		           })
+		         }
+		      }
+        }
+      } yield result
+  }
+
+  private def handlePasswordChange(loginInfo: LoginInfo, newPassword: String): Future[Result] = {
+     for {
+       user <- userIdentityService.retrieve(loginInfo)
+		   result <- user.fold(LoginErrorStatusResult(loginInfo.providerKey,"INVALID_USERNAME_PASSWORD")) { identity =>
+		       validateIdentity(identity) match {
+		         case SuccessfulLogin(user) => {
+		           Future { changePassword(identity,newPassword) }
+		         }
+		         case AccountLocked() => Future {
+		           Logger.info(s"User: ${identity.user.email}. Change Own Password: Account locked")
+		           OkNoCache(Json.obj("status" -> "ACCOUNT_LOCKED"))
+		         }
+		       }
+		     }
+     } yield result
+  }
+  
+  private def changePassword(userIdentity: UserIdentity, newPassword: String): Result = {
+    if (isPasswordStrongEnough(newPassword)) {
+        val passwordInfo = passwordHasher.hash(newPassword)
+        userService.changeUserPassword(userIdentity.user.id.get, passwordInfo.password)
+        Logger.info(s"User: ${userIdentity.user.email}. Change Own Password.")
+        OkNoCache(Json.obj("status" -> "OK"))
+    } else {
+      Logger.info(s"User: ${userIdentity.user.email}. Change Own Password: Password not strong enough")
+      val msg = configuration.getString(PASSWORD_POLICY_MESSAGE).get
+      OkNoCache(Json.obj("status" -> "PASSWORD_NOT_STRONG_ENOUGH", "message" -> msg))
+    }
+  }
+  
 }

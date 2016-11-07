@@ -8,6 +8,7 @@ define([ 'angular', 'angularMocks','app','common'],
         beforeEach(function() {
             module('app',function($provide) {
                 $provide.value('playRoutes', mockPlayRoutes);
+                $provide.value('$auth',mockNotAuth);
               }
             );
             

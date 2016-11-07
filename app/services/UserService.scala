@@ -21,6 +21,8 @@ trait UserService {
 
   def findOneById(id: Long): Future[User]
   
+  def findByEmail(email: String): Future[Option[User]]
+  
   def authenticate(email: String, password: String): Future[LoginResult]
   
   def searchUsers(searchString: String): Future[Seq[User]]
@@ -59,6 +61,10 @@ class UserServiceDatabase @Inject()(dbConfigProvider: DatabaseConfigProvider, co
   
   override def findOneById(id: Long): Future[User] = {
       db.run(UsersDAO.find(id))
+  }
+  
+  override def findByEmail(email: String): Future[Option[User]] = {
+    db.run(UsersDAO.findByEmail(email))
   }
   
   override def authenticate(email: String, password: String): Future[LoginResult] = {

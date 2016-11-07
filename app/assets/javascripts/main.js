@@ -25,7 +25,8 @@
       'angular-ui-select': ['angular'],
       'angular-translate': ['angular'],
       'angular-translate-loader-partial': ['angular-translate'],
-      'angular-translate-loader-url': ['angular-translate']
+      'angular-translate-loader-url': ['angular-translate'],
+      'satellizer': ['angular']
     },
     paths: {
       'requirejs': ['../lib/requirejs/require'],
@@ -41,7 +42,8 @@
       'angular-translate-loader-partial': ['../lib/angular-translate-loader-partial/angular-translate-loader-partial'],
       'angular-translate-loader-url': ['../lib/angular-translate-loader-url/angular-translate-loader-url'],
       'moment': ['../lib/momentjs/moment'],
-      'jsRoutes': ['/jsroutes']
+      'jsRoutes': ['/jsroutes'],
+      'satellizer': ['../lib/satellizer/satellizer']
     },
     config: {
         moment: {
@@ -58,7 +60,7 @@
   // Load the app. This is kept minimal so it doesn't need much updating.
   require(['angular', 'angular-cookies', 'angular-route', 'angular-sanitize','jquery', 'bootstrap', 
            './app','ui-bootstrap','angular-ui-select','angular-translate', 'angular-translate-loader-url', 
-           'angular-translate-loader-partial'],
+           'angular-translate-loader-partial','satellizer'],
     function (angular) {
       angular.bootstrap(document, ['app']);
     }

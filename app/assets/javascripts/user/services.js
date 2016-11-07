@@ -4,16 +4,12 @@
 define(['angular', 'moment', 'common'], function (angular,moment) {
   'use strict';
 
-  var mod = angular.module('user.services', ['myapp.common', 'ngCookies']);
-  mod.factory('userSessionContext', ['$q', 'playRoutes', '$cookies', '$log', '$location', '$rootScope',function ($q, playRoutes, $cookies, $log, $location, $rootScope) {
-    var user, token = $cookies.get('XSRF-TOKEN'), currentRange;
+  var mod = angular.module('user.services', ['myapp.common', 'ngCookies','satellizer']);
+  mod.factory('userSessionContext', ['$q', 'playRoutes', '$cookies', '$log', '$location', '$rootScope','$auth',function ($q, playRoutes, $cookies, $log, $location, $rootScope, $auth) {
+    var user;
 
-    /*
-	 * If the token is assigned, check that the token is still valid on the
-	 * server
-	 */
-    if (token) {
-      $log.info('Restoring user from cookie...');
+    if ($auth.isAuthenticated()) {
+      $log.info('Restoring user...');
       playRoutes.controllers.Users.currentLoggedInUser().get()
       .success(function (data) {
         $log.info('Welcome back, ' + data.name);
@@ -21,11 +17,10 @@ define(['angular', 'moment', 'common'], function (angular,moment) {
         setUserName(data.name);
       })
       .error(function () {
-        $log.info('Token no longer valid, please log in.');
-        token = undefined;
-        $cookies.remove('XSRF-TOKEN');
+        $log.info('Not logged in.');
+        $cookies.remove('PLAY_CSRF_TOKEN');
         $location.path('/login');
-        return $q.reject("Token invalid");
+        return $q.reject("Not logged in");
       });
     }
 
@@ -35,10 +30,9 @@ define(['angular', 'moment', 'common'], function (angular,moment) {
     
     return {
        loginUser: function (credentials,errorCallback) {
-           var loginPromise = playRoutes.controllers.Application.login().post(credentials);
-           loginPromise.error(errorCallback);
+           var loginPromise = $auth.login(credentials);
+           loginPromise.catch(errorCallback);
            return loginPromise.then(function (response) {
-              token = response.data.token;
               user = response.data.user;
               setUserName(response.data.user.name);
               return user;
@@ -46,21 +40,18 @@ define(['angular', 'moment', 'common'], function (angular,moment) {
        },
        logout: function () {
             return playRoutes.controllers.Application.logout().post().then(function () {
-              $cookies.remove('XSRF-TOKEN');
-              token = undefined;
+              $cookies.remove('PLAY_CSRF_TOKEN');
               user = undefined;
               setUserName(undefined);
+              $auth.logout();
               $location.path('/login');
             });
        },
        getLoggedInUser: function () {
           return user;
        },
-       isUserLoggedIn: function() {
-          if (token) {
-             return true;
-          }
-          return false;
+       isUserLoggedIn: function() {          
+          return $auth.isAuthenticated();
        },
        currentRange : function() {
 		  if (currentRange === undefined) {
@@ -168,7 +159,7 @@ define(['angular', 'moment', 'common'], function (angular,moment) {
              return updateUserPromise;
          },
          changeMyPassword: function(currentPassword,newPassword,errorCallback) {
-             var updateUserPromise = playRoutes.controllers.Users.changeMyPassword(currentPassword,newPassword).post();
+             var updateUserPromise = playRoutes.controllers.Application.changeMyPassword(currentPassword,newPassword).post();
              updateUserPromise.error(errorCallback);
              return updateUserPromise;
          }

@@ -8,6 +8,7 @@ define([ 'angular', 'angularMocks','app','common'],
         beforeEach(function() {
             module('app',function($provide) {
                     $provide.value('playRoutes', mockPlayRoutes);
+                    $provide.value('$auth',mockNotAuth);
                 }
             );
             
@@ -19,8 +20,7 @@ define([ 'angular', 'angularMocks','app','common'],
         });
         
         compileEl = function() {
-            var el;
-            el = $compile('<form name="userForm" data-form-validation>\
+            var el = $compile('<form name="userForm" data-form-validation>\
                 <div id="first-name-group" class="form-group" >\
                   <input type="text" name="firstName" ng-model="firstName" ng-minlength="3" class="form-control" data-validate-popups/>\
                 </div>\
@@ -67,9 +67,7 @@ define([ 'angular', 'angularMocks','app','common'],
         
         describe('OK', function() {
             return it('Has correct attributes added', function() {
-              var el;
-              
-              el = compileEl();
+              var el = compileEl();
               expect(angular.element(firstNameEl(el)).attr('popover-placement')).toBe('right');
               expect(angular.element(firstNameEl(el)).attr('popover-trigger')).toBe('focus');
               $scope.userForm.validationMessages.firstName = 'This is an error';

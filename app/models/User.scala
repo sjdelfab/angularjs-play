@@ -1,5 +1,7 @@
 package models
 
+import com.mohiva.play.silhouette.api.{ Identity, LoginInfo }
+import com.mohiva.play.silhouette.impl.providers.CredentialsProvider
 import play.api.libs.functional.syntax.toFunctionalBuilderOps
 
 case class User(
@@ -9,7 +11,7 @@ case class User(
   var name: String,
   failedLoginAttempts: Int = 0,
   enabled: Boolean
-) {
+) extends Identity {
   
   def isAccountLocked(maxAttempts: Int) = {
     failedLoginAttempts >= maxAttempts
@@ -18,6 +20,8 @@ case class User(
   def mergeEditableChanges(user: User) {
     name = user.name
   }
+  
+  def loginInfo: LoginInfo = LoginInfo(CredentialsProvider.ID,email)
 }
 
 object User extends ((Option[Long],String,Option[String],String,Int,Boolean) => User) {

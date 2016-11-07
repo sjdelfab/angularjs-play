@@ -3,8 +3,8 @@ define(['angular', 'user', 'home'], function(angular) {
 
   // We must already declare most dependencies here (except for common), or the submodules' routes
   // will not be resolved
-  var app = angular.module('app', ['myapp.user','myapp.home','pascalprecht.translate']);
-  app.config(['$translateProvider','$translatePartialLoaderProvider','$httpProvider', function ($translateProvider, $translatePartialLoaderProvider, $httpProvider) {      
+  var app = angular.module('app', ['myapp.user','myapp.home','pascalprecht.translate','satellizer']);
+  app.config(['$translateProvider','$translatePartialLoaderProvider','$httpProvider','$authProvider', function ($translateProvider, $translatePartialLoaderProvider, $httpProvider, $authProvider) {      
       $translateProvider.useLoader('$translatePartialLoader', {
           urlTemplate: '/assets/i18n/{part}/{lang}.json'
        });
@@ -14,6 +14,10 @@ define(['angular', 'user', 'home'], function(angular) {
       $httpProvider.interceptors.push(function($q, $injector) {
           return {
             request: function(request) {
+              var $auth = $injector.get('$auth');
+              if ($auth.isAuthenticated()) {
+                  request.headers['X-Auth-Token'] = $auth.getToken();
+              }  
               // Add CSRF token for the Play CSRF filter
               var cookies = $injector.get('$cookies');
               var token = cookies.get('PLAY_CSRF_TOKEN');
@@ -26,6 +30,19 @@ define(['angular', 'user', 'home'], function(angular) {
             }
           };
       });
+      
+      $authProvider.httpInterceptor = true; // Add Authorization header to HTTP request
+      $authProvider.tokenName = 'token';
+      $authProvider.tokenPrefix = 'satellizer'; // Local Storage name prefix
+      $authProvider.authHeader = 'X-Auth-Token';
+      $authProvider.platform = 'browser';
+      $authProvider.storage = 'localStorage';
+      
+      $authProvider.loginRedirect = '/#/login';
+      $authProvider.logoutRedirect = '/';
+      $authProvider.loginUrl = '/login';
+      $authProvider.loginRoute = '/login';
+
   }]);
   return app;
 });
