@@ -31,6 +31,7 @@ import security.UserIdentityService
 import models.User
 import net.ceedubs.ficus.Ficus._
 import net.ceedubs.ficus.readers.ArbitraryTypeReader._
+import net.ceedubs.ficus.readers.EnumerationReader._
 import net.codingwell.scalaguice.ScalaModule
 import security.PasswordInfoDAO
 
@@ -84,8 +85,7 @@ class ApplicationModule(environment: Environment, configuration: Configuration) 
     configuration: Configuration,
     clock: Clock): AuthenticatorService[JWTAuthenticator] = {
 
-    // TODO Fix
-    val config = new JWTAuthenticatorSettings(sharedSecret = "foo")//configuration.underlying.as[JWTAuthenticatorSettings]("silhouette.authenticator")
+    val config = configuration.underlying.as[JWTAuthenticatorSettings]("silhouette.authenticator")
     val encoder = new CrypterAuthenticatorEncoder(crypter)
 
     new JWTAuthenticatorService(config, None, encoder, idGenerator, clock)
