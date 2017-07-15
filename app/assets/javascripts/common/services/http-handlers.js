@@ -1,8 +1,8 @@
 define([ 'angular' ], function(angular) {
 	'use strict';
 
-	var mod = angular.module('common.http-handler', []);
-	mod.factory('ErrorHandler', function($location, userSessionContext) {
+	var mod = angular.module('common.http-handler', ['user.services']);
+	mod.factory('ErrorHandler', ['$location', 'userSessionContext', function($location, userSessionContext) {
 		return {
 			handleError : function(status) {
 				if (userSessionContext.isUserLoggedIn()) {
@@ -20,7 +20,7 @@ define([ 'angular' ], function(angular) {
 				}
 			}
 		};
-	}).factory('httpErrorInterceptor', function($q, $location, UserService, ErrorHandler) {
+	}]).factory('httpErrorInterceptor', ['$q', '$location', 'ErrorHandler', function($q, $location, ErrorHandler) {
 		return {
 			'requestError' : function(rejection) {
 				ErrorHandler.handleError(rejection.status);
@@ -31,6 +31,6 @@ define([ 'angular' ], function(angular) {
 				return $q.reject(rejection);
 			}
 		};
-	});
+	}]);
 	return mod;
 });

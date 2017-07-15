@@ -11,7 +11,7 @@ define(['angular', 'user', 'home'], function(angular) {
       $translateProvider.preferredLanguage('en');
       $translateProvider.useSanitizeValueStrategy('sanitize');
       
-      $httpProvider.interceptors.push(function($q, $injector) {
+      $httpProvider.interceptors.push(['$q','$injector',function($q, $injector) {
           return {
             request: function(request) {
               var $auth = $injector.get('$auth');
@@ -29,7 +29,7 @@ define(['angular', 'user', 'home'], function(angular) {
               return request;
             }
           };
-      });
+      }]);
       
       $authProvider.httpInterceptor = true; // Add Authorization header to HTTP request
       $authProvider.tokenName = 'token';

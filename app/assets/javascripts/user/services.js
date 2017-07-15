@@ -1,10 +1,10 @@
 /**
  * User service, exposes user model to the rest of the app.
  */
-define(['angular', 'moment', 'common'], function (angular,moment) {
+define(['angular'], function (angular) {
   'use strict';
 
-  var mod = angular.module('user.services', ['myapp.common', 'ngCookies','satellizer']);
+  var mod = angular.module('user.services', ['myapp.common', 'ngCookies', 'satellizer']);
   mod.factory('userSessionContext', ['$q', 'playRoutes', '$cookies', '$log', '$location', '$rootScope','$auth',function ($q, playRoutes, $cookies, $log, $location, $rootScope, $auth) {
     var user;
 
@@ -53,23 +53,6 @@ define(['angular', 'moment', 'common'], function (angular,moment) {
        isUserLoggedIn: function() {          
           return $auth.isAuthenticated();
        },
-       currentRange : function() {
-		  if (currentRange === undefined) {
-		     var todaysDate = moment();
-		     var range = {};
-		     range.startDayOfMonth = todaysDate.weekday(0).date();
-		     range.startMonth = todaysDate.month();
-		     range.startYear = todaysDate.year();
-
-		     var endDay = todaysDate.weekday(6);
-			 range.endDayOfMonth = endDay.date();
-			 range.endMonth = endDay.month();
-			 range.endYear = endDay.year();
-
-			currentRange = range;
-		  }
-		  return currentRange;
-	   }
     };
   }]).factory('userManagement', ['playRoutes', function (playRoutes) {
       return {
